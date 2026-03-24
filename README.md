@@ -29,6 +29,8 @@ Type `/atu:check` in the agent pane to request feedback on your current work.
 | Command | Description |
 |---------|-------------|
 | `agent-tutor start [project-dir]` | Start a tutoring session (defaults to current directory) |
+| `agent-tutor start --tui [project-dir]` | Start session and launch the TUI instead of tmux attach |
+| `agent-tutor tui [project-dir]` | Launch TUI for an existing session |
 | `agent-tutor stop [project-dir]` | Stop the tutoring session for a project (defaults to cwd) |
 | `agent-tutor status [project-dir]` | Check if a tutoring session is running for a project |
 | `agent-tutor install-plugin [--scope]` | Install Claude Code plugin and tutor instructions |
@@ -81,6 +83,24 @@ Each lesson file follows this structure:
 
 Lessons are saved to your project directory. Add `lessons/` to `.gitignore` to keep them local, or commit them to share with others.
 
+## TUI Mode
+
+Agent Tutor includes a built-in terminal UI (powered by [bubbletea](https://github.com/charmbracelet/bubbletea)) that renders both panes in a single terminal window with customizable layout.
+
+```bash
+# Start session and launch TUI
+agent-tutor start --tui ~/myproject
+
+# Or launch TUI for an existing session
+agent-tutor tui ~/myproject
+```
+
+- **`Ctrl+Space`** — Switch focus between panes (customizable)
+- **`Ctrl+Q`** — Quit the TUI (session keeps running in the background)
+- Reattach anytime with `agent-tutor tui` or `tmux -L agent-tutor attach`
+
+The TUI uses adaptive polling: 50ms refresh when you're actively typing, slowing to 200ms when idle.
+
 ## Configuration
 
 Agent Tutor stores config in `.agent-tutor/config.toml` inside your project directory. A default config is created on first run.
@@ -104,6 +124,17 @@ git_poll_interval = "5s"
 layout = "horizontal"
 user_pane_size = 50
 socket = "agent-tutor"       # isolated tmux server socket name
+
+[tui]
+layout = "horizontal"        # horizontal | vertical
+split_ratio = 50             # percentage for first pane
+focus_key = "ctrl+space"     # switch focus between panes
+quit_key = "ctrl+q"          # quit the TUI
+
+[tui.polling]
+active_ms = 50               # refresh rate when actively typing
+idle_ms = 200                # refresh rate when idle
+idle_threshold_s = 10         # seconds before switching to idle rate
 ```
 
 ## Coaching intensity levels

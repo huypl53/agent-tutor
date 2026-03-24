@@ -6,21 +6,25 @@ import (
 	"os"
 	"syscall"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
 	"github.com/huypl53/agent-tutor/internal/config"
 	"github.com/huypl53/agent-tutor/internal/plugin"
 	"github.com/huypl53/agent-tutor/internal/tmux"
+	"github.com/huypl53/agent-tutor/internal/tui"
 )
 
 func NewStartCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "start [project-dir]",
 		Short: "Start a tutoring session",
 		Long:  "Set up tmux with side-by-side panes: your terminal + coding agent with tutor capabilities.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE:  runStart,
 	}
+	cmd.Flags().Bool("tui", false, "Launch the bubbletea TUI instead of attaching via tmux")
+	return cmd
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
@@ -81,6 +85,17 @@ func runStart(cmd *cobra.Command, args []string) error {
 	fmt.Printf("\nAttaching to tmux session...\n")
 	fmt.Printf("Left pane: your terminal. Right pane: your coding agent.\n")
 	fmt.Printf("Type /atu:check in the agent to get feedback on your work.\n\n")
+
+	useTUI, _ := cmd.Flags().GetBool("tui")
+	if useTUI {
+		model := tui.New(tm, cfg, sessName)
+		p := tea.NewProgram(model, tea.WithAltScreen())
+		if _, err := p.Run(); err != nil {
+			return fmt.Errorf("TUI error: %w", err)
+		}
+		fmt.Printf("TUI detached. Session %q is still running.\n", sessName)
+		return nil
+	}
 
 	attachCmd := fmt.Sprintf("tmux -L %q attach-session -t %s", cfg.Tmux.Socket, sessName)
 	return syscall.Exec("/usr/bin/env", []string{"env", "bash", "-c", attachCmd}, os.Environ())

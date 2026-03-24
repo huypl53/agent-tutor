@@ -80,6 +80,41 @@ func (m *Manager) CapturePane(paneID string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+func (m *Manager) capturePaneANSICmd(paneID string) *exec.Cmd {
+	target := fmt.Sprintf("%s:0.%s", m.Session, paneID)
+	return m.tmuxCmd("capture-pane", "-t", target, "-p", "-e")
+}
+
+// CapturePaneANSI captures the contents of the specified pane with ANSI escape codes preserved.
+func (m *Manager) CapturePaneANSI(paneID string) (string, error) {
+	out, err := m.capturePaneANSICmd(paneID).Output()
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+func (m *Manager) resizePaneCmd(paneID string, width, height int) *exec.Cmd {
+	target := fmt.Sprintf("%s:0.%s", m.Session, paneID)
+	return m.tmuxCmd("resize-pane", "-t", target, "-x", fmt.Sprintf("%d", width), "-y", fmt.Sprintf("%d", height))
+}
+
+// ResizePane resizes the specified pane to the given width and height.
+func (m *Manager) ResizePane(paneID string, width, height int) error {
+	return m.resizePaneCmd(paneID, width, height).Run()
+}
+
+func (m *Manager) sendKeysRawCmd(paneID string, keys ...string) *exec.Cmd {
+	target := fmt.Sprintf("%s:0.%s", m.Session, paneID)
+	args := append([]string{"send-keys", "-t", target}, keys...)
+	return m.tmuxCmd(args...)
+}
+
+// SendKeysRaw sends keystrokes to the specified pane without appending Enter.
+func (m *Manager) SendKeysRaw(paneID string, keys ...string) error {
+	return m.sendKeysRawCmd(paneID, keys...).Run()
+}
+
 // KillSession destroys the tmux session.
 func (m *Manager) KillSession() error {
 	return m.killSessionCmd().Run()

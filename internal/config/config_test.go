@@ -34,6 +34,31 @@ func TestLoadCreatesDefault(t *testing.T) {
 	}
 }
 
+func TestDefaultTUIConfig(t *testing.T) {
+	cfg := Default()
+	if cfg.TUI.Layout != "horizontal" {
+		t.Errorf("expected layout horizontal, got %s", cfg.TUI.Layout)
+	}
+	if cfg.TUI.SplitRatio != 50 {
+		t.Errorf("expected split_ratio 50, got %d", cfg.TUI.SplitRatio)
+	}
+	if cfg.TUI.FocusKey != "ctrl+space" {
+		t.Errorf("expected focus_key ctrl+space, got %s", cfg.TUI.FocusKey)
+	}
+	if cfg.TUI.QuitKey != "ctrl+q" {
+		t.Errorf("expected quit_key ctrl+q, got %s", cfg.TUI.QuitKey)
+	}
+	if cfg.TUI.Polling.ActiveMs != 50 {
+		t.Errorf("expected active_ms 50, got %d", cfg.TUI.Polling.ActiveMs)
+	}
+	if cfg.TUI.Polling.IdleMs != 200 {
+		t.Errorf("expected idle_ms 200, got %d", cfg.TUI.Polling.IdleMs)
+	}
+	if cfg.TUI.Polling.IdleThresholdS != 10 {
+		t.Errorf("expected idle_threshold_s 10, got %d", cfg.TUI.Polling.IdleThresholdS)
+	}
+}
+
 func TestLoadExisting(t *testing.T) {
 	dir := t.TempDir()
 	cfgDir := filepath.Join(dir, ".agent-tutor")
