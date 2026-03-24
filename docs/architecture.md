@@ -217,7 +217,7 @@ The `mcp` package implements an MCP server over stdio using the official Go SDK 
 
 ### Commands
 
-- **`start [project-dir]`** (`start.go`): Loads config, creates tmux session, splits panes, sends agent command with `--mcp-server` flag, then `syscall.Exec`s into `tmux attach-session`.
+- **`start [project-dir]`** (`start.go`): Loads config, creates tmux session, splits panes, sends agent command with `--mcp-config` (JSON with `agent-tutor` as stdio MCP server), then `syscall.Exec`s into `tmux attach-session`.
 - **`stop`** (`stop.go`): Kills the tmux session.
 - **`status`** (`status.go`): Reports whether a session is running.
 - **`mcp`** (`mcp.go`): Hidden command. Creates store, starts watchers, initializes trigger engine, runs MCP server on stdio.

@@ -79,7 +79,7 @@ go test -tags integration ./internal/integration/ -v -timeout 60s
 
 ## How it works (technical)
 
-The `start` command creates an isolated tmux session (via `tmux -L agent-tutor`), splits it into two panes, and launches the coding agent with an `--mcp-server` flag pointing to `agent-tutor mcp`. Using a dedicated tmux socket prevents interference with your existing tmux sessions. The MCP server:
+The `start` command creates an isolated tmux session (via `tmux -L agent-tutor`), splits it into two panes, and launches the coding agent with `--mcp-config` pointing to `agent-tutor mcp` as a stdio MCP server. Using a dedicated tmux socket prevents interference with your existing tmux sessions. The MCP server:
 
 1. **Watchers** (file, terminal, git) observe the student's activity and push events into a ring-buffer context store.
 2. **MCP tools** (`get_student_context`, `get_recent_file_changes`, `get_terminal_activity`, `get_git_activity`, `get_coaching_config`, `set_coaching_intensity`) let the agent query that store.

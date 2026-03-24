@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -56,8 +57,16 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 
 	self, _ := os.Executable()
-	mcpCmd := fmt.Sprintf("%s mcp --project-dir %q --socket %q", self, projectDir, cfg.Tmux.Socket)
-	agentCmd := fmt.Sprintf("%s --mcp-server '%s'", cfg.Agent.Command, mcpCmd)
+	mcpConfig := map[string]any{
+		"mcpServers": map[string]any{
+			"agent-tutor": map[string]any{
+				"command": self,
+				"args":    []string{"mcp", "--project-dir", projectDir, "--socket", cfg.Tmux.Socket},
+			},
+		},
+	}
+	mcpJSON, _ := json.Marshal(mcpConfig)
+	agentCmd := fmt.Sprintf("%s --mcp-config '%s'", cfg.Agent.Command, string(mcpJSON))
 	if err := tm.SendKeys("1", agentCmd); err != nil {
 		tm.KillSession()
 		return fmt.Errorf("starting agent: %w", err)
