@@ -19,6 +19,7 @@ func TestInstallLocal(t *testing.T) {
 		".agent-tutor/plugin/commands/atu:check.md",
 		".agent-tutor/plugin/commands/atu:hint.md",
 		".agent-tutor/plugin/commands/atu:explain.md",
+		".agent-tutor/plugin/commands/atu:save.md",
 	}
 	for _, f := range files {
 		path := filepath.Join(dir, f)
@@ -42,6 +43,25 @@ func TestInstallLocal(t *testing.T) {
 	}
 	if !strings.Contains(content, "get_student_context") {
 		t.Error("missing MCP tool reference")
+	}
+}
+
+func TestInstallLocalIncludesAutoSaveInstructions(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".claude", "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("CLAUDE.md not created: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "Lesson Auto-Save") {
+		t.Error("missing Lesson Auto-Save section in CLAUDE.md")
+	}
+	if !strings.Contains(content, "./lessons/") {
+		t.Error("missing ./lessons/ path reference in auto-save instructions")
 	}
 }
 
@@ -126,6 +146,7 @@ func TestInstallGlobal(t *testing.T) {
 		".claude/skills/atu-check/SKILL.md",
 		".claude/skills/atu-hint/SKILL.md",
 		".claude/skills/atu-explain/SKILL.md",
+		".claude/skills/atu-save/SKILL.md",
 	}
 	for _, s := range skills {
 		path := filepath.Join(dir, s)
@@ -154,7 +175,7 @@ func TestUninstallGlobal(t *testing.T) {
 	}
 
 	// Skill directories removed
-	for _, name := range []string{"atu-check", "atu-hint", "atu-explain"} {
+	for _, name := range []string{"atu-check", "atu-hint", "atu-explain", "atu-save"} {
 		path := filepath.Join(dir, ".claude", "skills", name)
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Errorf("skill directory %s should be removed", name)
@@ -175,6 +196,7 @@ func TestRestoreColons(t *testing.T) {
 		{"commands/atu-check.md", "commands/atu:check.md"},
 		{"commands/atu-hint.md", "commands/atu:hint.md"},
 		{"commands/atu-explain.md", "commands/atu:explain.md"},
+		{"commands/atu-save.md", "commands/atu:save.md"},
 		{".claude-plugin/plugin.json", ".claude-plugin/plugin.json"},
 		{"atu-check.md", "atu:check.md"},
 		{"other-file.md", "other-file.md"},

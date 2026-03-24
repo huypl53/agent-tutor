@@ -20,21 +20,26 @@ import (
 func NewMCPCmd() *cobra.Command {
 	var projectDir string
 	var socket string
+	var session string
 
 	cmd := &cobra.Command{
 		Use:    "mcp",
 		Short:  "Run as MCP server (used internally)",
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMCP(projectDir, socket)
+			if session == "" {
+				session = SessionName(projectDir)
+			}
+			return runMCP(projectDir, socket, session)
 		},
 	}
 	cmd.Flags().StringVar(&projectDir, "project-dir", ".", "Project directory to watch")
 	cmd.Flags().StringVar(&socket, "socket", "agent-tutor", "tmux socket name")
+	cmd.Flags().StringVar(&session, "session", "", "tmux session name (derived from project-dir if empty)")
 	return cmd
 }
 
-func runMCP(projectDir, socket string) error {
+func runMCP(projectDir, socket, session string) error {
 	cfg, err := config.Load(projectDir)
 	if err != nil {
 		return err
@@ -67,7 +72,7 @@ func runMCP(projectDir, socket string) error {
 		defer fw.Stop()
 	}
 
-	tw := watcher.NewTerminalWatcher(sessionName, "0", termInterval, s, socket)
+	tw := watcher.NewTerminalWatcher(session, "0", termInterval, s, socket)
 	tw.Start(ctx)
 	defer tw.Stop()
 

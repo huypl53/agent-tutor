@@ -11,21 +11,24 @@ import (
 func NewStatusCmd() *cobra.Command {
 	var socket string
 	cmd := &cobra.Command{
-		Use:   "status",
+		Use:   "status [project-dir]",
 		Short: "Show current session info",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			projectDir := resolveProjectDir(args)
 			if !cmd.Flags().Changed("socket") {
 				if s := socketFromConfig(); s != "" {
 					socket = s
 				}
 			}
-			tm := tmux.New(sessionName)
+			sessName := SessionName(projectDir)
+			tm := tmux.New(sessName)
 			tm.Socket = socket
 			if !tm.HasSession() {
-				fmt.Println("No active agent-tutor session.")
+				fmt.Printf("No active agent-tutor session for %s.\n", projectDir)
 				return nil
 			}
-			fmt.Println("Agent Tutor session is running.")
+			fmt.Printf("Agent Tutor session is running (%s).\n", sessName)
 			return nil
 		},
 	}

@@ -29,8 +29,8 @@ Type `/atu:check` in the agent pane to request feedback on your current work.
 | Command | Description |
 |---------|-------------|
 | `agent-tutor start [project-dir]` | Start a tutoring session (defaults to current directory) |
-| `agent-tutor stop [--socket NAME]` | Stop the current tutoring session |
-| `agent-tutor status [--socket NAME]` | Check if a tutoring session is running |
+| `agent-tutor stop [project-dir]` | Stop the tutoring session for a project (defaults to cwd) |
+| `agent-tutor status [project-dir]` | Check if a tutoring session is running for a project |
 | `agent-tutor install-plugin [--scope]` | Install Claude Code plugin and tutor instructions |
 | `agent-tutor uninstall-plugin [--scope]` | Remove Claude Code plugin and tutor instructions |
 
@@ -56,6 +56,30 @@ agent-tutor uninstall-plugin
 | `/atu:check` | Comprehensive review of recent coding activity |
 | `/atu:hint` | Quick nudge — one teaching point |
 | `/atu:explain` | Explain the most recent error or output |
+| `/atu:save` | Save a lesson to `./lessons/` for later review |
+
+## Lesson Export
+
+Agent Tutor saves structured lesson files to `./lessons/` in your project directory so you can review what you learned.
+
+**On-demand:** Type `/atu:save goroutines` in the agent pane to explicitly save a lesson about a topic.
+
+**Automatic:** Lessons are also saved automatically after `/atu:check` feedback and after git commit coaching nudges. The tutor instructions in CLAUDE.md tell the agent to write a lesson file whenever it gives substantive coaching feedback.
+
+Each lesson file follows this structure:
+
+    # Topic Title
+
+    **Date:** 2026-03-24
+    **Topic:** category
+    **Trigger:** manual|check|commit|nudge
+
+    ## What I Learned
+    ## Code Example
+    ## Key Takeaway
+    ## Common Mistakes
+
+Lessons are saved to your project directory. Add `lessons/` to `.gitignore` to keep them local, or commit them to share with others.
 
 ## Configuration
 
@@ -104,7 +128,7 @@ go test -tags integration ./internal/integration/ -v -timeout 60s
 
 ## How it works (technical)
 
-The `start` command creates an isolated tmux session (via `tmux -L agent-tutor`), splits it into two panes, auto-installs the embedded plugin if not already present, and launches the coding agent with `--mcp-config` (MCP server) and `--plugin-dir` (slash commands). Using a dedicated tmux socket prevents interference with your existing tmux sessions. The MCP server:
+The `start` command creates an isolated tmux session (via `tmux -L agent-tutor`), splits it into two panes, auto-installs the embedded plugin if not already present, and launches the coding agent with `--mcp-config` (MCP server) and `--plugin-dir` (slash commands). Each project gets a unique session name (`agent-tutor-<basename>-<hash>`), so you can run multiple tutoring sessions concurrently across different projects. Using a dedicated tmux socket prevents interference with your existing tmux sessions. The MCP server:
 
 1. **Watchers** (file, terminal, git) observe the student's activity and push events into a ring-buffer context store.
 2. **MCP tools** (`get_student_context`, `get_recent_file_changes`, `get_terminal_activity`, `get_git_activity`, `get_coaching_config`, `set_coaching_intensity`) let the agent query that store.

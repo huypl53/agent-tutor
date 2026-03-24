@@ -66,6 +66,8 @@ The `start` command auto-installs locally if the plugin is not present, and pass
 
 Note: Embedded command files use dashes (`atu-check.md`) because Go's embed package forbids colons in filenames. A `restoreColons()` helper maps them back to colons (`atu:check.md`) during local extraction for Claude Code command registration.
 
+Embedded commands: `atu-check.md`, `atu-hint.md`, `atu-explain.md`, `atu-save.md`. The `/atu:save` command instructs Claude to write structured lesson files to `./lessons/`.
+
 ### Config (`internal/config`)
 
 TOML-based configuration loaded from `.agent-tutor/config.toml` in the project directory. Creates a default config on first run. Sections: `[tutor]`, `[agent]`, `[watchers]`, `[tmux]`.
@@ -123,6 +125,15 @@ Student activity
                   tutor_nudge → agent coaches proactively
 ```
 
+### Lesson Export
+
+The lesson export system saves structured markdown files to `./lessons/` in the project directory. Two mechanisms:
+
+1. **`/atu:save [topic]`** slash command — explicitly triggers lesson capture. Claude calls `get_student_context` and `get_coaching_config`, then writes a lesson file using its Write tool.
+2. **CLAUDE.md auto-save instructions** — the tutor instruction block (injected via `claudeMDSection` in `plugin.go`) tells Claude to also save a lesson file after `/atu:check` feedback and git commit nudges.
+
+No server-side MCP tool is needed — Claude's built-in file writing capability handles all I/O. The lesson template includes: topic, date, trigger type, explanation, code example, key takeaway, and common mistakes.
+
 ## MCP tools reference
 
 | Tool | Input | Description |
@@ -151,6 +162,8 @@ Student activity
 7. **Config auto-creation** -- If no `.agent-tutor/config.toml` exists, a default is written on first `start`. This gives users a file to edit without requiring a separate `init` command.
 
 8. **Isolated tmux socket** -- Uses `tmux -L agent-tutor` to run in a separate tmux server. This prevents interference with the user's existing tmux sessions and enables parallel E2E testing. The socket name is configurable via `[tmux] socket` in config or `--socket` CLI flag.
+
+9. **Per-project session names** -- Session names are derived from the project directory path (`agent-tutor-<basename>-<hash>`), allowing multiple tutoring sessions to run concurrently across different projects on the same tmux socket.
 
 ## internal/tmux
 
@@ -231,12 +244,16 @@ The `mcp` package implements an MCP server over stdio using the official Go SDK 
 
 ### Commands
 
-- **`start [project-dir]`** (`start.go`): Loads config, auto-installs plugin if missing, creates tmux session, splits panes, sends agent command with `--mcp-config` and `--plugin-dir`, then `syscall.Exec`s into `tmux attach-session`.
-- **`stop`** (`stop.go`): Kills the tmux session.
-- **`status`** (`status.go`): Reports whether a session is running.
+- **`start [project-dir]`** (`start.go`): Loads config, auto-installs plugin if missing, creates tmux session with a per-project session name, splits panes, sends agent command with `--mcp-config`, `--plugin-dir`, and `--session`, then `syscall.Exec`s into `tmux attach-session`.
+- **`stop [project-dir]`** (`stop.go`): Derives session name from project dir and kills the tmux session.
+- **`status [project-dir]`** (`status.go`): Derives session name from project dir and reports whether a session is running.
 - **`install-plugin`** (`install_plugin.go`): Extracts embedded plugin files and appends tutor instructions to CLAUDE.md. `--scope local|global`.
 - **`uninstall-plugin`** (`uninstall_plugin.go`): Removes plugin files and tutor instructions. `--scope local|global`.
-- **`mcp`** (`mcp.go`): Hidden command. Creates store, starts watchers, initializes trigger engine, runs MCP server on stdio.
+- **`mcp`** (`mcp.go`): Hidden command. Accepts `--session` flag (derived from project-dir if empty). Creates store, starts watchers, initializes trigger engine, runs MCP server on stdio.
+
+### Session naming (`session.go`)
+
+Session names are derived deterministically from the project directory: `agent-tutor-<basename>-<sha256[:8]>`. The basename is sanitised (dots/colons replaced with dashes). The hash ensures uniqueness when two projects share the same basename but have different parent paths. This enables concurrent tutoring sessions across multiple projects.
 
 ## internal/trigger
 
