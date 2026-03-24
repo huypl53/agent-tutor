@@ -14,6 +14,11 @@ func NewStatusCmd() *cobra.Command {
 		Use:   "status",
 		Short: "Show current session info",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !cmd.Flags().Changed("socket") {
+				if s := socketFromConfig(); s != "" {
+					socket = s
+				}
+			}
 			tm := tmux.New(sessionName)
 			tm.Socket = socket
 			if !tm.HasSession() {
