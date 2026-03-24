@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/huypham/agent-tutor/internal/config"
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/config"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 // ToolHandlers wraps the store and config to provide MCP tool implementations.

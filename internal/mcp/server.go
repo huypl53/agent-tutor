@@ -5,8 +5,8 @@ import (
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/huypham/agent-tutor/internal/config"
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/config"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 // EmptyInput is used for tools that take no input parameters.

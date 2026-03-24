@@ -9,7 +9,7 @@ Agent Tutor creates a tmux session with two panes: your terminal on the left, a 
 ## Installation
 
 ```
-go install github.com/huypham/agent-tutor/cmd/agent-tutor@latest
+go install github.com/huypl53/agent-tutor/cmd/agent-tutor@latest
 ```
 
 Requires tmux and git on your PATH.

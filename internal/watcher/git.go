@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 // GitWatcher polls git status and git log at a configurable interval.

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 func TestFileWatcherDetectsChange(t *testing.T) {

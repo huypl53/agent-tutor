@@ -3,7 +3,7 @@ package mcp
 import (
 	"fmt"
 
-	"github.com/huypham/agent-tutor/internal/config"
+	"github.com/huypl53/agent-tutor/internal/config"
 )
 
 // BuildInstructions returns the tutor system prompt string for the MCP server.

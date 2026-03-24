@@ -25,7 +25,7 @@ func (m *Manager) splitPaneCmd(sizePercent int, layout string) *exec.Cmd {
 	if layout == "vertical" {
 		flag = "-v"
 	}
-	return exec.Command("tmux", "split-window", flag, "-t", m.Session, "-p", fmt.Sprintf("%d", sizePercent))
+	return exec.Command("tmux", "split-window", flag, "-t", m.Session, "-l", fmt.Sprintf("%d%%", sizePercent))
 }
 
 func (m *Manager) capturePaneCmd(paneID string) *exec.Cmd {

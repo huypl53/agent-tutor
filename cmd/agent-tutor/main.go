@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/huypham/agent-tutor/internal/cli"
+	"github.com/huypl53/agent-tutor/internal/cli"
 )
 
 func main() {

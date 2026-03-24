@@ -1,4 +1,4 @@
-module github.com/huypham/agent-tutor
+module github.com/huypl53/agent-tutor
 
 go 1.25.0
 

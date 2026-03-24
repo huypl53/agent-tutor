@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huypham/agent-tutor/internal/config"
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/config"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 func TestBuildInstructions(t *testing.T) {

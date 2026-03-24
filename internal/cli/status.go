@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/huypham/agent-tutor/internal/tmux"
+	"github.com/huypl53/agent-tutor/internal/tmux"
 )
 
 func NewStatusCmd() *cobra.Command {

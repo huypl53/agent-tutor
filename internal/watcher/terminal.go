@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 // errorPatterns are compiled regexps for detecting errors in terminal output.

@@ -18,7 +18,7 @@
 
 **Step 1: Initialize Go module**
 
-Run: `go mod init github.com/huypham/agent-tutor`
+Run: `go mod init github.com/huypl53/agent-tutor`
 
 **Step 2: Install core dependencies**
 
@@ -737,7 +737,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 func TestFileWatcherDetectsChange(t *testing.T) {
@@ -790,7 +790,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 type FileWatcher struct {
@@ -952,7 +952,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 func TestTerminalDiff(t *testing.T) {
@@ -1024,7 +1024,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 var errorPatterns = []*regexp.Regexp{
@@ -1163,7 +1163,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 func TestGitWatcherDetectsCommit(t *testing.T) {
@@ -1233,7 +1233,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 type GitWatcher struct {
@@ -1391,8 +1391,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huypham/agent-tutor/internal/config"
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/config"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 func TestBuildInstructions(t *testing.T) {
@@ -1482,7 +1482,7 @@ package mcp
 import (
 	"fmt"
 
-	"github.com/huypham/agent-tutor/internal/config"
+	"github.com/huypl53/agent-tutor/internal/config"
 )
 
 func BuildInstructions(cfg *config.Config) string {
@@ -1518,8 +1518,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/huypham/agent-tutor/internal/config"
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/config"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 type ToolHandlers struct {
@@ -1604,8 +1604,8 @@ import (
 	"context"
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/huypham/agent-tutor/internal/config"
-	"github.com/huypham/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/config"
+	"github.com/huypl53/agent-tutor/internal/store"
 )
 
 type Server struct {
@@ -1889,12 +1889,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/huypham/agent-tutor/internal/config"
-	mcpserver "github.com/huypham/agent-tutor/internal/mcp"
-	"github.com/huypham/agent-tutor/internal/store"
-	"github.com/huypham/agent-tutor/internal/tmux"
-	"github.com/huypham/agent-tutor/internal/trigger"
-	"github.com/huypham/agent-tutor/internal/watcher"
+	"github.com/huypl53/agent-tutor/internal/config"
+	mcpserver "github.com/huypl53/agent-tutor/internal/mcp"
+	"github.com/huypl53/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/tmux"
+	"github.com/huypl53/agent-tutor/internal/trigger"
+	"github.com/huypl53/agent-tutor/internal/watcher"
 )
 
 const sessionName = "agent-tutor"
@@ -1983,11 +1983,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/huypham/agent-tutor/internal/config"
-	mcpserver "github.com/huypham/agent-tutor/internal/mcp"
-	"github.com/huypham/agent-tutor/internal/store"
-	"github.com/huypham/agent-tutor/internal/trigger"
-	"github.com/huypham/agent-tutor/internal/watcher"
+	"github.com/huypl53/agent-tutor/internal/config"
+	mcpserver "github.com/huypl53/agent-tutor/internal/mcp"
+	"github.com/huypl53/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/trigger"
+	"github.com/huypl53/agent-tutor/internal/watcher"
 )
 
 func NewMCPCmd() *cobra.Command {
@@ -2070,7 +2070,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/huypham/agent-tutor/internal/tmux"
+	"github.com/huypl53/agent-tutor/internal/tmux"
 )
 
 func NewStopCmd() *cobra.Command {
@@ -2101,7 +2101,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/huypham/agent-tutor/internal/tmux"
+	"github.com/huypl53/agent-tutor/internal/tmux"
 )
 
 func NewStatusCmd() *cobra.Command {
@@ -2132,7 +2132,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/huypham/agent-tutor/internal/cli"
+	"github.com/huypl53/agent-tutor/internal/cli"
 )
 
 func main() {
@@ -2213,7 +2213,7 @@ git commit -m "feat: integration wiring and build verification"
 
 Update `README.md` with:
 - Project description
-- Installation: `go install github.com/huypham/agent-tutor/cmd/agent-tutor@latest`
+- Installation: `go install github.com/huypl53/agent-tutor/cmd/agent-tutor@latest`
 - Quick start: `agent-tutor start ~/myproject`
 - Configuration section
 - How it works (brief architecture)

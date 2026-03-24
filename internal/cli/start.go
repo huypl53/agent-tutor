@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/huypham/agent-tutor/internal/config"
-	"github.com/huypham/agent-tutor/internal/tmux"
+	"github.com/huypl53/agent-tutor/internal/config"
+	"github.com/huypl53/agent-tutor/internal/tmux"
 )
 
 const sessionName = "agent-tutor"

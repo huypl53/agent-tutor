@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/huypham/agent-tutor/internal/config"
-	mcpserver "github.com/huypham/agent-tutor/internal/mcp"
-	"github.com/huypham/agent-tutor/internal/store"
-	"github.com/huypham/agent-tutor/internal/trigger"
-	"github.com/huypham/agent-tutor/internal/watcher"
+	"github.com/huypl53/agent-tutor/internal/config"
+	mcpserver "github.com/huypl53/agent-tutor/internal/mcp"
+	"github.com/huypl53/agent-tutor/internal/store"
+	"github.com/huypl53/agent-tutor/internal/trigger"
+	"github.com/huypl53/agent-tutor/internal/watcher"
 )
 
 func NewMCPCmd() *cobra.Command {
