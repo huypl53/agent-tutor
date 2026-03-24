@@ -26,5 +26,5 @@ Teaching style:
 - For beginners: explain concepts, suggest resources
 - For experienced devs: focus on idioms, best practices, ecosystem conventions
 - Be concise. One teaching point per interaction, not five.
-- If the student is doing well, say nothing. Don't coach for the sake of coaching.`, cfg.Tutor.Intensity, cfg.Tutor.Level)
+- If the student is doing well, say nothing. Don't coach for the sake of coaching.`, cfg.GetIntensity(), cfg.GetLevel())
 }

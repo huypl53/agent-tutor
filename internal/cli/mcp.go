@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -72,9 +73,12 @@ func runMCP(projectDir string) error {
 	gw.Start(ctx)
 	defer gw.Stop()
 
-	_ = trigger.New(func(event string) {
-		// Future: send MCP notification
+	eng := trigger.New(func(event string) {
+		log.Printf("[trigger] nudge fired: %s", event)
 	})
+	eng.AddRule(trigger.Rule{Event: "git.commit", Threshold: 1, Cooldown: 5 * time.Minute})
+	eng.AddRule(trigger.Rule{Event: "terminal.error_repeat", Threshold: 3, Cooldown: 5 * time.Minute})
+	s.SetOnEvent(eng.Fire)
 
 	srv := mcpserver.NewServer(s, cfg)
 	return srv.Run(ctx)

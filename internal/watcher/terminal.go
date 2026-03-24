@@ -124,6 +124,7 @@ func (tw *TerminalWatcher) poll(ctx context.Context) {
 
 	tw.store.AddTerminalEvent(store.TerminalEvent{
 		Content:   d,
+		HasError:  tw.hasError(d),
 		Timestamp: time.Now(),
 	})
 }

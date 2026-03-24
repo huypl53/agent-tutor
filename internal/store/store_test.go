@@ -1,6 +1,7 @@
 package store
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -58,5 +59,42 @@ func TestSummary(t *testing.T) {
 	summary := s.Summary(time.Duration(0))
 	if summary == "" {
 		t.Error("expected non-empty summary")
+	}
+}
+
+func TestSummaryOmitsHeadersWhenAllEventsOlderThanCutoff(t *testing.T) {
+	s := New()
+	old := time.Now().Add(-2 * time.Hour)
+	s.AddFileEvent(FileEvent{Path: "old.go", Change: "modify", Timestamp: old})
+	s.AddTerminalEvent(TerminalEvent{Content: "old output", Timestamp: old})
+	s.AddGitEvent(GitEvent{Type: "commit", Summary: "old commit", Timestamp: old})
+
+	summary := s.Summary(1 * time.Hour)
+	if summary != "" {
+		t.Errorf("expected empty summary when all events are older than cutoff, got:\n%s", summary)
+	}
+}
+
+func TestSummaryIncludesOnlyRecentEvents(t *testing.T) {
+	s := New()
+	old := time.Now().Add(-2 * time.Hour)
+	recent := time.Now()
+	s.AddFileEvent(FileEvent{Path: "old.go", Change: "modify", Timestamp: old})
+	s.AddFileEvent(FileEvent{Path: "new.go", Change: "create", Timestamp: recent})
+	s.AddTerminalEvent(TerminalEvent{Content: "old output", Timestamp: old})
+	s.AddGitEvent(GitEvent{Type: "commit", Summary: "old commit", Timestamp: old})
+
+	summary := s.Summary(1 * time.Hour)
+	if strings.Contains(summary, "old.go") {
+		t.Error("summary should not contain old file event")
+	}
+	if !strings.Contains(summary, "new.go") {
+		t.Error("summary should contain recent file event")
+	}
+	if strings.Contains(summary, "## Terminal Activity") {
+		t.Error("summary should not contain Terminal Activity header when all terminal events are old")
+	}
+	if strings.Contains(summary, "## Git Activity") {
+		t.Error("summary should not contain Git Activity header when all git events are old")
 	}
 }

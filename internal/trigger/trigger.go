@@ -38,27 +38,30 @@ func (e *Engine) AddRule(r Rule) {
 
 func (e *Engine) Fire(event string) {
 	e.mu.Lock()
-	defer e.mu.Unlock()
 
 	state, ok := e.rules[event]
 	if !ok {
+		e.mu.Unlock()
 		return
 	}
 
 	state.count++
 
 	if state.count < state.rule.Threshold {
+		e.mu.Unlock()
 		return
 	}
 
 	if !state.lastFire.IsZero() && time.Since(state.lastFire) < state.rule.Cooldown {
+		e.mu.Unlock()
 		return
 	}
 
 	state.count = 0
 	state.lastFire = time.Now()
+	cb := e.callback
 
-	// Call callback synchronously so test assertions work immediately.
-	// The caller can wrap in a goroutine if needed.
-	e.callback(event)
+	e.mu.Unlock()
+
+	cb(event)
 }

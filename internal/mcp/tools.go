@@ -73,14 +73,14 @@ func (h *ToolHandlers) GetGitActivity() string {
 
 // GetCoachingConfig returns the current coaching intensity and level.
 func (h *ToolHandlers) GetCoachingConfig() string {
-	return fmt.Sprintf("intensity: %s\nlevel: %s", h.config.Tutor.Intensity, h.config.Tutor.Level)
+	return fmt.Sprintf("intensity: %s\nlevel: %s", h.config.GetIntensity(), h.config.GetLevel())
 }
 
 // SetCoachingIntensity validates and sets the coaching intensity.
 func (h *ToolHandlers) SetCoachingIntensity(intensity string) string {
 	switch intensity {
 	case "proactive", "on-demand", "silent":
-		h.config.Tutor.Intensity = intensity
+		h.config.SetIntensity(intensity)
 		return fmt.Sprintf("Coaching intensity set to: %s", intensity)
 	default:
 		return fmt.Sprintf("Invalid intensity %q. Must be one of: proactive, on-demand, silent", intensity)

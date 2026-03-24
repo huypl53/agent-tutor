@@ -55,7 +55,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 
 	self, _ := os.Executable()
-	mcpCmd := fmt.Sprintf("%s mcp --project-dir %s", self, projectDir)
+	mcpCmd := fmt.Sprintf("%s mcp --project-dir %q", self, projectDir)
 	agentCmd := fmt.Sprintf("%s --mcp-server '%s'", cfg.Agent.Command, mcpCmd)
 	if err := tm.SendKeys("1", agentCmd); err != nil {
 		tm.KillSession()
@@ -65,7 +65,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Agent Tutor session started.\n")
 	fmt.Printf("  Project: %s\n", projectDir)
 	fmt.Printf("  Agent: %s\n", cfg.Agent.Command)
-	fmt.Printf("  Coaching: %s\n", cfg.Tutor.Intensity)
+	fmt.Printf("  Coaching: %s\n", cfg.GetIntensity())
 	fmt.Printf("\nAttaching to tmux session...\n")
 	fmt.Printf("Left pane: your terminal. Right pane: your coding agent.\n")
 	fmt.Printf("Type /check in the agent to get feedback on your work.\n\n")

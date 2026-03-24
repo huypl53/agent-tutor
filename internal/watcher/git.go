@@ -4,6 +4,7 @@ import (
 	"context"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/huypham/agent-tutor/internal/store"
@@ -15,6 +16,7 @@ type GitWatcher struct {
 	dir          string
 	pollInterval time.Duration
 	store        *store.Store
+	mu           sync.Mutex
 	lastHead     string
 	lastStatus   string
 	cancel       context.CancelFunc
@@ -65,6 +67,8 @@ func (gw *GitWatcher) loop(ctx context.Context) {
 
 // recordState captures the current HEAD and status as baseline.
 func (gw *GitWatcher) recordState() {
+	gw.mu.Lock()
+	defer gw.mu.Unlock()
 	gw.lastHead = gw.getHead()
 	gw.lastStatus = gw.getStatus()
 }
@@ -73,6 +77,9 @@ func (gw *GitWatcher) recordState() {
 func (gw *GitWatcher) poll() {
 	head := gw.getHead()
 	status := gw.getStatus()
+
+	gw.mu.Lock()
+	defer gw.mu.Unlock()
 
 	if head != gw.lastHead && head != "" {
 		msg := gw.getLastCommitMessage()
@@ -134,16 +141,4 @@ func (gw *GitWatcher) getLastCommitDiff() string {
 		s = s[:497] + "..."
 	}
 	return s
-}
-
-// parseStatus parses porcelain status output into a list of file paths.
-func (gw *GitWatcher) parseStatus(output string) []string {
-	var files []string
-	for _, line := range strings.Split(output, "\n") {
-		if len(line) < 3 {
-			continue
-		}
-		files = append(files, strings.TrimSpace(line[2:]))
-	}
-	return files
 }

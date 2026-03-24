@@ -3,15 +3,35 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"sync"
 
 	toml "github.com/pelletier/go-toml/v2"
 )
 
 type Config struct {
+	mu       sync.RWMutex
 	Tutor    TutorConfig   `toml:"tutor"`
 	Agent    AgentConfig   `toml:"agent"`
 	Watchers WatcherConfig `toml:"watchers"`
 	Tmux     TmuxConfig    `toml:"tmux"`
+}
+
+func (c *Config) SetIntensity(intensity string) {
+	c.mu.Lock()
+	c.Tutor.Intensity = intensity
+	c.mu.Unlock()
+}
+
+func (c *Config) GetIntensity() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Tutor.Intensity
+}
+
+func (c *Config) GetLevel() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Tutor.Level
 }
 
 type TutorConfig struct {

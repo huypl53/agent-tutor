@@ -80,7 +80,7 @@ func TestToolHandlers(t *testing.T) {
 		if !strings.Contains(result, "proactive") {
 			t.Error("expected result to confirm proactive")
 		}
-		if cfg.Tutor.Intensity != "proactive" {
+		if cfg.GetIntensity() != "proactive" {
 			t.Error("expected config intensity to be updated")
 		}
 

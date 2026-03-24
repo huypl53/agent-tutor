@@ -46,12 +46,3 @@ func TestGitWatcherDetectsCommit(t *testing.T) {
 		t.Error("expected at least one git event")
 	}
 }
-
-func TestParseGitStatus(t *testing.T) {
-	gw := &GitWatcher{}
-	output := " M main.go\n?? newfile.go\nA  staged.go\n"
-	files := gw.parseStatus(output)
-	if len(files) != 3 {
-		t.Errorf("expected 3 files, got %d", len(files))
-	}
-}

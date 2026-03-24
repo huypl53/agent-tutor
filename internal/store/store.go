@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -26,6 +27,7 @@ type FileEvent struct {
 // TerminalEvent represents terminal output.
 type TerminalEvent struct {
 	Content   string
+	HasError  bool
 	Timestamp time.Time
 }
 
@@ -79,6 +81,7 @@ type Store struct {
 	files     *ringBuffer[FileEvent]
 	terminals *ringBuffer[TerminalEvent]
 	gits      *ringBuffer[GitEvent]
+	onEvent   func(eventType string)
 }
 
 // New creates a Store with default capacities.
@@ -90,25 +93,47 @@ func New() *Store {
 	}
 }
 
+func (s *Store) SetOnEvent(fn func(eventType string)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onEvent = fn
+}
+
 // AddFileEvent appends a file event.
 func (s *Store) AddFileEvent(e FileEvent) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.files.add(e)
+	cb := s.onEvent
+	s.mu.Unlock()
+	if cb != nil {
+		cb("file.change")
+	}
 }
 
 // AddTerminalEvent appends a terminal event.
 func (s *Store) AddTerminalEvent(e TerminalEvent) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.terminals.add(e)
+	cb := s.onEvent
+	s.mu.Unlock()
+	if cb != nil {
+		if e.HasError {
+			cb("terminal.error_repeat")
+		}
+	}
 }
 
 // AddGitEvent appends a git event.
 func (s *Store) AddGitEvent(e GitEvent) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.gits.add(e)
+	cb := s.onEvent
+	s.mu.Unlock()
+	if cb != nil {
+		if e.Type == "commit" {
+			cb("git.commit")
+		}
+	}
 }
 
 // FileEvents returns a snapshot of file events.
@@ -148,44 +173,53 @@ func (s *Store) Summary(since time.Duration) string {
 
 	// File events
 	files := s.files.snapshot()
-	if len(files) > 0 {
-		b.WriteString("## File Changes\n\n")
-		for _, e := range files {
-			if !cutoff.IsZero() && e.Timestamp.Before(cutoff) {
-				continue
-			}
-			b.WriteString(fmt.Sprintf("- **%s** `%s`", e.Change, e.Path))
-			if e.Diff != "" {
-				b.WriteString(fmt.Sprintf("\n  ```\n  %s\n  ```", truncate(e.Diff, 200)))
-			}
-			b.WriteByte('\n')
+	var fileBuf strings.Builder
+	for _, e := range files {
+		if !cutoff.IsZero() && e.Timestamp.Before(cutoff) {
+			continue
 		}
+		fileBuf.WriteString(fmt.Sprintf("- **%s** `%s`", e.Change, e.Path))
+		if e.Diff != "" {
+			fileBuf.WriteString(fmt.Sprintf("\n  ```\n  %s\n  ```", truncate(e.Diff, 200)))
+		}
+		fileBuf.WriteByte('\n')
+	}
+	if fileBuf.Len() > 0 {
+		b.WriteString("## File Changes\n\n")
+		b.WriteString(fileBuf.String())
 		b.WriteByte('\n')
 	}
 
 	// Terminal events
 	terms := s.terminals.snapshot()
-	if len(terms) > 0 {
-		b.WriteString("## Terminal Activity\n\n")
-		for _, e := range terms {
-			if !cutoff.IsZero() && e.Timestamp.Before(cutoff) {
-				continue
-			}
-			b.WriteString(fmt.Sprintf("```\n%s\n```\n", truncate(e.Content, 300)))
+	var termBuf strings.Builder
+	for _, e := range terms {
+		if !cutoff.IsZero() && e.Timestamp.Before(cutoff) {
+			continue
 		}
+		if e.HasError {
+			termBuf.WriteString("**[ERROR]**\n")
+		}
+		termBuf.WriteString(fmt.Sprintf("```\n%s\n```\n", truncate(e.Content, 300)))
+	}
+	if termBuf.Len() > 0 {
+		b.WriteString("## Terminal Activity\n\n")
+		b.WriteString(termBuf.String())
 		b.WriteByte('\n')
 	}
 
 	// Git events
 	gits := s.gits.snapshot()
-	if len(gits) > 0 {
-		b.WriteString("## Git Activity\n\n")
-		for _, e := range gits {
-			if !cutoff.IsZero() && e.Timestamp.Before(cutoff) {
-				continue
-			}
-			b.WriteString(fmt.Sprintf("- **%s**: %s\n", e.Type, e.Summary))
+	var gitBuf strings.Builder
+	for _, e := range gits {
+		if !cutoff.IsZero() && e.Timestamp.Before(cutoff) {
+			continue
 		}
+		gitBuf.WriteString(fmt.Sprintf("- **%s**: %s\n", e.Type, e.Summary))
+	}
+	if gitBuf.Len() > 0 {
+		b.WriteString("## Git Activity\n\n")
+		b.WriteString(gitBuf.String())
 		b.WriteByte('\n')
 	}
 
@@ -197,5 +231,9 @@ func truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
-	return s[:maxLen-3] + "..."
+	cut := maxLen - 3
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + "..."
 }

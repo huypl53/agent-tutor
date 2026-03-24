@@ -21,8 +21,9 @@ type FileWatcher struct {
 	store    *store.Store
 	watcher  *fsnotify.Watcher
 
-	mu      sync.Mutex
-	stopped bool
+	mu            sync.Mutex
+	stopped       bool
+	pendingTimers map[string]*time.Timer
 }
 
 // NewFileWatcher creates a FileWatcher for the given directory.
@@ -34,11 +35,12 @@ func NewFileWatcher(dir string, patterns, ignores []string, s *store.Store) (*Fi
 		return nil, err
 	}
 	return &FileWatcher{
-		dir:      dir,
-		patterns: patterns,
-		ignores:  ignores,
-		store:    s,
-		watcher:  w,
+		dir:           dir,
+		patterns:      patterns,
+		ignores:       ignores,
+		store:         s,
+		watcher:       w,
+		pendingTimers: make(map[string]*time.Timer),
 	}, nil
 }
 
@@ -56,6 +58,10 @@ func (fw *FileWatcher) Stop() error {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
 	fw.stopped = true
+	for name, t := range fw.pendingTimers {
+		t.Stop()
+		delete(fw.pendingTimers, name)
+	}
 	return fw.watcher.Close()
 }
 
@@ -83,9 +89,6 @@ func (fw *FileWatcher) addDirs() error {
 func (fw *FileWatcher) loop(ctx context.Context) {
 	const debounce = 300 * time.Millisecond
 
-	pending := make(map[string]*time.Timer)
-	var mu sync.Mutex
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -103,14 +106,18 @@ func (fw *FileWatcher) loop(ctx context.Context) {
 				continue
 			}
 
-			mu.Lock()
-			if t, exists := pending[ev.Name]; exists {
+			fw.mu.Lock()
+			if t, exists := fw.pendingTimers[ev.Name]; exists {
 				t.Stop()
 			}
-			pending[ev.Name] = time.AfterFunc(debounce, func() {
-				mu.Lock()
-				delete(pending, ev.Name)
-				mu.Unlock()
+			fw.pendingTimers[ev.Name] = time.AfterFunc(debounce, func() {
+				fw.mu.Lock()
+				if fw.stopped {
+					fw.mu.Unlock()
+					return
+				}
+				delete(fw.pendingTimers, ev.Name)
+				fw.mu.Unlock()
 
 				rel := fw.relativePath(ev.Name)
 				diff := fw.getDiff(ev.Name)
@@ -121,13 +128,12 @@ func (fw *FileWatcher) loop(ctx context.Context) {
 					Timestamp: time.Now(),
 				})
 			})
-			mu.Unlock()
+			fw.mu.Unlock()
 
 		case _, ok := <-fw.watcher.Errors:
 			if !ok {
 				return
 			}
-			// Silently ignore watcher errors.
 		}
 	}
 }
