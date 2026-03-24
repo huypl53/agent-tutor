@@ -52,6 +52,36 @@ You have MCP tools to observe their work — use them to provide relevant coachi
 - For beginners: explain concepts, suggest resources
 - For experienced devs: focus on idioms, best practices
 - If the student is doing well, say nothing
+
+## Lesson Auto-Save
+
+After giving coaching feedback in these situations, also save a lesson file to ` + "`./lessons/`" + `:
+- After responding to ` + "`/atu:check`" + ` — save the coaching feedback as a lesson
+- After a ` + "`tutor_nudge`" + ` triggered by a git commit — save what was learned in that commit
+- Whenever you explain a non-trivial concept and it would be valuable for review
+
+Write each lesson to ` + "`./lessons/YYYY-MM-DD-<topic-slug>.md`" + ` using this template:
+Create the ` + "`./lessons/`" + ` directory if it does not exist.
+
+    # <Topic Title>
+
+    **Date:** YYYY-MM-DD
+    **Topic:** <category>
+    **Trigger:** <check|commit|nudge|manual>
+
+    ## What I Learned
+    <Clear explanation tailored to student level>
+
+    ## Code Example
+    <Relevant code with annotations>
+
+    ## Key Takeaway
+    <One sentence to remember>
+
+    ## Common Mistakes
+    <Pitfalls to avoid>
+
+Do not duplicate — if a lesson file for the same topic already exists today, skip it.
 <!-- END AGENT-TUTOR -->`
 
 // Install extracts embedded plugin files and appends CLAUDE.md section.
@@ -165,7 +195,7 @@ func uninstallGlobal() error {
 	}
 
 	// Remove skill directories
-	for _, name := range []string{"atu-check", "atu-hint", "atu-explain"} {
+	for _, name := range []string{"atu-check", "atu-hint", "atu-explain", "atu-save"} {
 		if err := os.RemoveAll(filepath.Join(home, ".claude", "skills", name)); err != nil {
 			return fmt.Errorf("removing skill %s: %w", name, err)
 		}

@@ -56,6 +56,30 @@ agent-tutor uninstall-plugin
 | `/atu:check` | Comprehensive review of recent coding activity |
 | `/atu:hint` | Quick nudge — one teaching point |
 | `/atu:explain` | Explain the most recent error or output |
+| `/atu:save` | Save a lesson to `./lessons/` for later review |
+
+## Lesson Export
+
+Agent Tutor saves structured lesson files to `./lessons/` in your project directory so you can review what you learned.
+
+**On-demand:** Type `/atu:save goroutines` in the agent pane to explicitly save a lesson about a topic.
+
+**Automatic:** Lessons are also saved automatically after `/atu:check` feedback and after git commit coaching nudges. The tutor instructions in CLAUDE.md tell the agent to write a lesson file whenever it gives substantive coaching feedback.
+
+Each lesson file follows this structure:
+
+    # Topic Title
+
+    **Date:** 2026-03-24
+    **Topic:** category
+    **Trigger:** manual|check|commit|nudge
+
+    ## What I Learned
+    ## Code Example
+    ## Key Takeaway
+    ## Common Mistakes
+
+Lessons are saved to your project directory. Add `lessons/` to `.gitignore` to keep them local, or commit them to share with others.
 
 ## Configuration
 

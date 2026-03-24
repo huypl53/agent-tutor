@@ -66,6 +66,8 @@ The `start` command auto-installs locally if the plugin is not present, and pass
 
 Note: Embedded command files use dashes (`atu-check.md`) because Go's embed package forbids colons in filenames. A `restoreColons()` helper maps them back to colons (`atu:check.md`) during local extraction for Claude Code command registration.
 
+Embedded commands: `atu-check.md`, `atu-hint.md`, `atu-explain.md`, `atu-save.md`. The `/atu:save` command instructs Claude to write structured lesson files to `./lessons/`.
+
 ### Config (`internal/config`)
 
 TOML-based configuration loaded from `.agent-tutor/config.toml` in the project directory. Creates a default config on first run. Sections: `[tutor]`, `[agent]`, `[watchers]`, `[tmux]`.
@@ -122,6 +124,15 @@ Student activity
                          ▼
                   tutor_nudge → agent coaches proactively
 ```
+
+### Lesson Export
+
+The lesson export system saves structured markdown files to `./lessons/` in the project directory. Two mechanisms:
+
+1. **`/atu:save [topic]`** slash command — explicitly triggers lesson capture. Claude calls `get_student_context` and `get_coaching_config`, then writes a lesson file using its Write tool.
+2. **CLAUDE.md auto-save instructions** — the tutor instruction block (injected via `claudeMDSection` in `plugin.go`) tells Claude to also save a lesson file after `/atu:check` feedback and git commit nudges.
+
+No server-side MCP tool is needed — Claude's built-in file writing capability handles all I/O. The lesson template includes: topic, date, trigger type, explanation, code example, key takeaway, and common mistakes.
 
 ## MCP tools reference
 
