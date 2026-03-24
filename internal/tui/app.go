@@ -14,7 +14,14 @@ import (
 	"github.com/huypl53/agent-tutor/internal/tmux"
 )
 
+// tickMsg triggers a new async capture cycle.
 type tickMsg struct{}
+
+// capturedMsg carries the results of an async pane capture.
+type capturedMsg struct {
+	contents [2]string
+	errors   [2]error
+}
 
 // Model is the top-level bubbletea model for the dual-pane TUI.
 type Model struct {
@@ -63,12 +70,46 @@ func New(tm *tmux.Manager, cfg *config.Config, sessName string) Model {
 	}
 }
 
-// Init returns the initial command that starts the tick loop and clears the screen.
+// Init returns the initial command that starts the capture loop and clears the screen.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tick(m.panes[0].TickInterval()), tea.ClearScreen)
+	return tea.Batch(captureAllCmd(m.panes), tea.ClearScreen)
 }
 
-func tick(d time.Duration) tea.Cmd {
+// captureAllCmd runs both pane captures in a goroutine (non-blocking).
+func captureAllCmd(panes [2]*PaneModel) tea.Cmd {
+	return func() tea.Msg {
+		var msg capturedMsg
+		for i, p := range panes {
+			content, err := p.tm.CapturePaneANSI(p.targetID)
+			msg.contents[i] = content
+			msg.errors[i] = err
+		}
+		return msg
+	}
+}
+
+// sendKeysCmd forwards keys to tmux in a goroutine (non-blocking).
+func sendKeysCmd(p *PaneModel, keys []string) tea.Cmd {
+	return func() tea.Msg {
+		_ = p.tm.SendKeysRaw(p.targetID, keys...)
+		return nil
+	}
+}
+
+// resizePanesCmd resizes tmux panes in a goroutine (non-blocking).
+func resizePanesCmd(tm *tmux.Manager, panes [2]*PaneModel, dimensions [2][2]int) tea.Cmd {
+	return func() tea.Msg {
+		for i, p := range panes {
+			w, h := dimensions[i][0], dimensions[i][1]
+			if w > 0 && h > 0 {
+				_ = tm.ResizePane(p.targetID, w, h)
+			}
+		}
+		return nil
+	}
+}
+
+func scheduleTick(d time.Duration) tea.Cmd {
 	return tea.Tick(d, func(time.Time) tea.Msg {
 		return tickMsg{}
 	})
@@ -81,20 +122,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ready = true
-		m.syncTmuxPaneSizes()
-		return m, nil
+		return m, m.syncTmuxPaneSizesCmd()
 
 	case tickMsg:
+		// Tick fired — launch async capture
+		return m, captureAllCmd(m.panes)
+
+	case capturedMsg:
+		// Async capture completed — update pane content
 		for i := range m.panes {
-			_ = m.panes[i].Capture()
+			p := m.panes[i]
+			if msg.errors[i] != nil {
+				p.errCount++
+				if p.errCount >= 5 {
+					p.content = fmt.Sprintf("[tmux capture failed: %v]", msg.errors[i])
+				}
+			} else {
+				p.errCount = 0
+				if msg.contents[i] != p.content {
+					p.lastActive = time.Now()
+					p.content = msg.contents[i]
+				}
+			}
 		}
+		// Schedule next tick using adaptive interval
 		i0 := m.panes[0].TickInterval()
 		i1 := m.panes[1].TickInterval()
 		interval := i0
 		if i1 < i0 {
 			interval = i1
 		}
-		return m, tick(interval)
+		return m, scheduleTick(interval)
 
 	case tea.KeyMsg:
 		switch {
@@ -108,8 +166,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			tmuxKeys := KeyToTmux(msg)
 			if tmuxKeys != nil {
-				_ = m.panes[m.activePane].SendKeys(tmuxKeys...)
 				m.panes[m.activePane].MarkActive()
+				return m, sendKeysCmd(m.panes[m.activePane], tmuxKeys)
 			}
 			return m, nil
 		}
@@ -204,15 +262,15 @@ func (m Model) renderStatusBar() string {
 	return m.styles.StatusBar.Width(m.width).Render(m.statusBar.RenderPlain())
 }
 
-func (m Model) syncTmuxPaneSizes() {
+func (m Model) syncTmuxPaneSizesCmd() tea.Cmd {
 	statusHeight := 1
 	// 4 accounts for top+bottom borders of 2 pane boxes
 	availHeight := m.height - statusHeight - 4
 
+	var dims [2][2]int
 	for i := range m.panes {
 		pw, ph := m.paneDimensions(i, availHeight)
-		if pw > 0 && ph > 0 {
-			_ = m.tm.ResizePane(m.panes[i].targetID, pw, ph)
-		}
+		dims[i] = [2]int{pw, ph}
 	}
+	return resizePanesCmd(m.tm, m.panes, dims)
 }
