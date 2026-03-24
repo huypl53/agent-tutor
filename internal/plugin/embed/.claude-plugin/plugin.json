@@ -1,0 +1,7 @@
+{
+  "name": "agent-tutor",
+  "version": "0.1.0",
+  "description": "Programming tutor skills for agent-tutor sessions",
+  "author": { "name": "agent-tutor" },
+  "commands": "./commands/"
+}
