@@ -40,6 +40,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 
 	tm := tmux.New(sessionName)
+	tm.Socket = cfg.Tmux.Socket
 	if tm.HasSession() {
 		return fmt.Errorf("session %q already exists — run 'agent-tutor stop' first", sessionName)
 	}
@@ -55,7 +56,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 
 	self, _ := os.Executable()
-	mcpCmd := fmt.Sprintf("%s mcp --project-dir %q", self, projectDir)
+	mcpCmd := fmt.Sprintf("%s mcp --project-dir %q --socket %s", self, projectDir, cfg.Tmux.Socket)
 	agentCmd := fmt.Sprintf("%s --mcp-server '%s'", cfg.Agent.Command, mcpCmd)
 	if err := tm.SendKeys("1", agentCmd); err != nil {
 		tm.KillSession()
@@ -70,6 +71,6 @@ func runStart(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Left pane: your terminal. Right pane: your coding agent.\n")
 	fmt.Printf("Type /check in the agent to get feedback on your work.\n\n")
 
-	attachCmd := fmt.Sprintf("tmux attach-session -t %s", sessionName)
+	attachCmd := fmt.Sprintf("tmux -L %s attach-session -t %s", cfg.Tmux.Socket, sessionName)
 	return syscall.Exec("/usr/bin/env", []string{"env", "bash", "-c", attachCmd}, os.Environ())
 }

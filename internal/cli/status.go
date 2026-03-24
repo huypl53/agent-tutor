@@ -9,11 +9,13 @@ import (
 )
 
 func NewStatusCmd() *cobra.Command {
-	return &cobra.Command{
+	var socket string
+	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show current session info",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tm := tmux.New(sessionName)
+			tm.Socket = socket
 			if !tm.HasSession() {
 				fmt.Println("No active agent-tutor session.")
 				return nil
@@ -22,4 +24,6 @@ func NewStatusCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&socket, "socket", "agent-tutor", "tmux socket name")
+	return cmd
 }

@@ -9,11 +9,13 @@ import (
 )
 
 func NewStopCmd() *cobra.Command {
-	return &cobra.Command{
+	var socket string
+	cmd := &cobra.Command{
 		Use:   "stop",
 		Short: "Stop the tutoring session",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tm := tmux.New(sessionName)
+			tm.Socket = socket
 			if !tm.HasSession() {
 				return fmt.Errorf("no active agent-tutor session")
 			}
@@ -24,4 +26,6 @@ func NewStopCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&socket, "socket", "agent-tutor", "tmux socket name")
+	return cmd
 }
