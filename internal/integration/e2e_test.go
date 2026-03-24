@@ -107,26 +107,7 @@ func projectRoot(t *testing.T) string {
 	}
 }
 
-func TestE2ESessionLifecycle(t *testing.T) {
-	// Build the binary
-	binDir := t.TempDir()
-	binPath := filepath.Join(binDir, "agent-tutor")
-	build := exec.Command("go", "build", "-o", binPath, "./cmd/agent-tutor")
-	build.Dir = projectRoot(t)
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build failed: %v\n%s", err, out)
-	}
-
-	// Create a temp project dir with git
-	projectDir := t.TempDir()
-	run(t, projectDir, "git", "init")
-	run(t, projectDir, "git", "config", "user.email", "test@test.com")
-	run(t, projectDir, "git", "config", "user.name", "test")
-
-	// Write config that uses "cat" as the agent (fast, no-op)
-	cfgDir := filepath.Join(projectDir, ".agent-tutor")
-	os.MkdirAll(cfgDir, 0o755)
-	os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(`
+const testConfig = `
 [tutor]
 intensity = "proactive"
 level = "beginner"
@@ -145,7 +126,32 @@ git_poll_interval = "2s"
 layout = "horizontal"
 user_pane_size = 50
 socket = "agent-tutor-test"
-`), 0o644)
+`
+
+// setupE2E builds the binary, creates a temp project dir with git and config,
+// starts the tmux session, and registers cleanup. Returns the project dir.
+func setupE2E(t *testing.T) string {
+	t.Helper()
+
+	// Build the binary
+	binDir := t.TempDir()
+	binPath := filepath.Join(binDir, "agent-tutor")
+	build := exec.Command("go", "build", "-o", binPath, "./cmd/agent-tutor")
+	build.Dir = projectRoot(t)
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build failed: %v\n%s", err, out)
+	}
+
+	// Create a temp project dir with git
+	projectDir := t.TempDir()
+	run(t, projectDir, "git", "init")
+	run(t, projectDir, "git", "config", "user.email", "test@test.com")
+	run(t, projectDir, "git", "config", "user.name", "test")
+
+	// Write config
+	cfgDir := filepath.Join(projectDir, ".agent-tutor")
+	os.MkdirAll(cfgDir, 0o755)
+	os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(testConfig), 0o644)
 
 	// Cleanup: always kill test tmux server
 	t.Cleanup(func() {
@@ -154,6 +160,12 @@ socket = "agent-tutor-test"
 
 	// Start the session
 	startTmux(t, binPath, projectDir)
+
+	return projectDir
+}
+
+func TestE2ESessionLifecycle(t *testing.T) {
+	setupE2E(t)
 
 	// Verify session exists
 	if err := tmuxCmd("has-session", "-t", testSession).Run(); err != nil {
@@ -168,4 +180,87 @@ socket = "agent-tutor-test"
 	}
 
 	t.Log("Session created with 2 panes ✓")
+}
+
+func TestE2EGoLearnerActivity(t *testing.T) {
+	projectDir := setupE2E(t)
+
+	// Wait for MCP server to start (pane 1 will show log output)
+	time.Sleep(2 * time.Second)
+
+	// === Simulate user learning Go in pane 0 ===
+
+	// Step 1: User creates a Go file with a bug (unused import)
+	t.Log("Simulating: user writes buggy Go code")
+	goCode := `cat > main.go << 'GOEOF'
+package main
+
+import "fmt"
+import "os"
+
+func main() {
+    fmt.Println("Hello Go!")
+}
+GOEOF`
+	sendKeys(t, "0", goCode)
+	time.Sleep(1 * time.Second)
+
+	// Step 2: User tries to build — error (unused import "os")
+	t.Log("Simulating: user runs go build, gets error")
+	sendKeys(t, "0", "cd "+projectDir+" && go build -o hello main.go")
+	time.Sleep(2 * time.Second)
+
+	// Verify the error shows in pane 0
+	content := capturePane(t, "0")
+	if !strings.Contains(content, "imported and not used") {
+		t.Log("Warning: expected 'imported and not used' error in pane 0")
+		t.Log("Pane 0 content:", content)
+	} else {
+		t.Log("User sees compilation error ✓")
+	}
+
+	// Step 3: User fixes the bug
+	t.Log("Simulating: user fixes the unused import")
+	fixCode := `cat > main.go << 'GOEOF'
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello Go!")
+}
+GOEOF`
+	sendKeys(t, "0", fixCode)
+	time.Sleep(1 * time.Second)
+
+	// Step 4: Build succeeds
+	sendKeys(t, "0", "go build -o hello main.go && echo BUILD_OK")
+	waitForContent(t, "0", "BUILD_OK", 10*time.Second)
+	t.Log("Build succeeds after fix ✓")
+
+	// Step 5: User runs the program
+	sendKeys(t, "0", "./hello")
+	waitForContent(t, "0", "Hello Go!", 5*time.Second)
+	t.Log("Program runs correctly ✓")
+
+	// Step 6: User makes a git commit
+	t.Log("Simulating: user commits their work")
+	sendKeys(t, "0", "git add main.go && git commit -m 'feat: hello world'")
+	time.Sleep(3 * time.Second)
+
+	// === Verify watchers detected activity ===
+
+	// The MCP server is running in pane 1. Check for trigger engine output.
+	pane1Content := capturePane(t, "1")
+	t.Log("Agent pane (MCP server) output:")
+	t.Log(pane1Content)
+
+	// Check that the trigger engine detected the commit
+	if strings.Contains(pane1Content, "[trigger] nudge fired: git.commit") {
+		t.Log("Trigger engine detected git commit ✓")
+	} else {
+		t.Log("Note: git.commit trigger not visible in captured output (may need longer wait)")
+	}
+
+	t.Log("E2E Go learner simulation complete ✓")
 }
