@@ -1,0 +1,279 @@
+package plugin
+
+import (
+	"embed"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+//go:embed all:embed
+var pluginFS embed.FS
+
+type Scope string
+
+const (
+	ScopeLocal  Scope = "local"
+	ScopeGlobal Scope = "global"
+)
+
+const beginSentinel = "<!-- BEGIN AGENT-TUTOR -->"
+const endSentinel = "<!-- END AGENT-TUTOR -->"
+
+const claudeMDSection = `<!-- BEGIN AGENT-TUTOR -->
+# Agent Tutor
+
+You are a programming tutor. A student is working in a terminal pane next to you.
+You have MCP tools to observe their work — use them to provide relevant coaching.
+
+## MCP Tools Reference
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| ` + "`get_student_context`" + ` | 5-minute activity summary (markdown) | Quick overview of what the student is doing |
+| ` + "`get_recent_file_changes`" + ` | File changes with diffs | When reviewing code the student wrote |
+| ` + "`get_terminal_activity`" + ` | Recent terminal output | When the student hits errors or runs commands |
+| ` + "`get_git_activity`" + ` | Commits and status changes | When the student commits or has uncommitted work |
+| ` + "`get_coaching_config`" + ` | Current intensity and level | Check before deciding how proactive to be |
+| ` + "`set_coaching_intensity`" + ` | Change coaching mode | When the student asks to adjust coaching |
+
+## Coaching Behavior
+
+- **proactive**: After messages, check ` + "`get_student_context`" + ` for teachable moments. On ` + "`tutor_nudge`" + `, offer coaching.
+- **on-demand**: Only use tutor tools when the student asks or uses ` + "`/atu:check`" + `.
+- **silent**: Never coach unless explicitly asked.
+
+## Teaching Style
+
+- Explain the "why" not just the "what"
+- One teaching point per interaction, not five
+- For beginners: explain concepts, suggest resources
+- For experienced devs: focus on idioms, best practices
+- If the student is doing well, say nothing
+<!-- END AGENT-TUTOR -->`
+
+// Install extracts embedded plugin files and appends CLAUDE.md section.
+func Install(projectDir string, scope Scope) error {
+	switch scope {
+	case ScopeLocal:
+		return installLocal(projectDir)
+	case ScopeGlobal:
+		return installGlobal()
+	default:
+		return fmt.Errorf("unknown scope: %s", scope)
+	}
+}
+
+// Uninstall removes plugin files and CLAUDE.md section.
+func Uninstall(projectDir string, scope Scope) error {
+	switch scope {
+	case ScopeLocal:
+		return uninstallLocal(projectDir)
+	case ScopeGlobal:
+		return uninstallGlobal()
+	default:
+		return fmt.Errorf("unknown scope: %s", scope)
+	}
+}
+
+// PluginDir returns the local plugin directory path for a project.
+func PluginDir(projectDir string) string {
+	return filepath.Join(projectDir, ".agent-tutor", "plugin")
+}
+
+// IsInstalled checks if the plugin is installed locally in the project.
+func IsInstalled(projectDir string) bool {
+	_, err := os.Stat(filepath.Join(PluginDir(projectDir), ".claude-plugin", "plugin.json"))
+	return err == nil
+}
+
+func installLocal(projectDir string) error {
+	destDir := PluginDir(projectDir)
+
+	// Extract embedded files to .agent-tutor/plugin/
+	if err := extractEmbedded(destDir); err != nil {
+		return fmt.Errorf("extracting plugin files: %w", err)
+	}
+
+	// Append to .claude/CLAUDE.md
+	claudeMD := filepath.Join(projectDir, ".claude", "CLAUDE.md")
+	if err := appendCLAUDEmd(claudeMD); err != nil {
+		return fmt.Errorf("updating CLAUDE.md: %w", err)
+	}
+
+	return nil
+}
+
+func installGlobal() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("getting home dir: %w", err)
+	}
+
+	// Install each command as a global skill
+	commands, err := fs.ReadDir(pluginFS, "embed/commands")
+	if err != nil {
+		return fmt.Errorf("reading embedded commands: %w", err)
+	}
+
+	for _, entry := range commands {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		// "atu:check.md" -> "atu-check"
+		skillName := strings.TrimSuffix(name, ".md")
+		skillName = strings.ReplaceAll(skillName, ":", "-")
+
+		skillDir := filepath.Join(home, ".claude", "skills", skillName)
+		if err := os.MkdirAll(skillDir, 0o755); err != nil {
+			return err
+		}
+
+		data, err := pluginFS.ReadFile("embed/commands/" + name)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), data, 0o644); err != nil {
+			return err
+		}
+	}
+
+	// Append to ~/.claude/CLAUDE.md
+	claudeMD := filepath.Join(home, ".claude", "CLAUDE.md")
+	return appendCLAUDEmd(claudeMD)
+}
+
+func uninstallLocal(projectDir string) error {
+	// Remove plugin directory
+	pluginDir := PluginDir(projectDir)
+	os.RemoveAll(pluginDir)
+
+	// Remove CLAUDE.md section
+	claudeMD := filepath.Join(projectDir, ".claude", "CLAUDE.md")
+	return removeCLAUDEmdSection(claudeMD)
+}
+
+func uninstallGlobal() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	// Remove skill directories
+	for _, name := range []string{"atu-check", "atu-hint", "atu-explain"} {
+		os.RemoveAll(filepath.Join(home, ".claude", "skills", name))
+	}
+
+	// Remove CLAUDE.md section
+	claudeMD := filepath.Join(home, ".claude", "CLAUDE.md")
+	return removeCLAUDEmdSection(claudeMD)
+}
+
+func extractEmbedded(destDir string) error {
+	return fs.WalkDir(pluginFS, "embed", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Strip "embed/" prefix to get relative path
+		rel, _ := filepath.Rel("embed", path)
+		if rel == "." {
+			return nil
+		}
+		// Embedded files use dashes (atu-check.md) because go:embed
+		// forbids colons. Restore colons for Claude Code command names.
+		rel = restoreColons(rel)
+		dest := filepath.Join(destDir, rel)
+
+		if d.IsDir() {
+			return os.MkdirAll(dest, 0o755)
+		}
+
+		data, err := pluginFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(dest, data, 0o644)
+	})
+}
+
+func appendCLAUDEmd(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+
+	existing, _ := os.ReadFile(path)
+	content := string(existing)
+
+	// Idempotent: if already present, replace it
+	if strings.Contains(content, beginSentinel) {
+		content = removeSentinelBlock(content)
+	}
+
+	// Append with a blank line separator
+	if content != "" && !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	if content != "" {
+		content += "\n"
+	}
+	content += claudeMDSection + "\n"
+
+	return os.WriteFile(path, []byte(content), 0o644)
+}
+
+func removeCLAUDEmdSection(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	content := removeSentinelBlock(string(data))
+	return os.WriteFile(path, []byte(content), 0o644)
+}
+
+func removeSentinelBlock(content string) string {
+	beginIdx := strings.Index(content, beginSentinel)
+	endIdx := strings.Index(content, endSentinel)
+	if beginIdx < 0 || endIdx < 0 {
+		return content
+	}
+
+	before := content[:beginIdx]
+	after := content[endIdx+len(endSentinel):]
+
+	// Clean up extra blank lines
+	before = strings.TrimRight(before, "\n")
+	after = strings.TrimLeft(after, "\n")
+
+	if before == "" {
+		return after
+	}
+	if after == "" {
+		return before + "\n"
+	}
+	return before + "\n\n" + after
+}
+
+// restoreColons converts embedded filenames like "commands/atu-check.md"
+// back to "commands/atu:check.md" for Claude Code command registration.
+func restoreColons(path string) string {
+	dir := filepath.Dir(path)
+	base := filepath.Base(path)
+	if strings.HasPrefix(base, "atu-") {
+		base = "atu:" + strings.TrimPrefix(base, "atu-")
+	}
+	if dir == "." {
+		return base
+	}
+	return filepath.Join(dir, base)
+}
