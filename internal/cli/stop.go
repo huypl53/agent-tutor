@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -13,23 +14,26 @@ import (
 func NewStopCmd() *cobra.Command {
 	var socket string
 	cmd := &cobra.Command{
-		Use:   "stop",
+		Use:   "stop [project-dir]",
 		Short: "Stop the tutoring session",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			projectDir := resolveProjectDir(args)
 			if !cmd.Flags().Changed("socket") {
 				if s := socketFromConfig(); s != "" {
 					socket = s
 				}
 			}
-			tm := tmux.New(sessionName)
+			sessName := SessionName(projectDir)
+			tm := tmux.New(sessName)
 			tm.Socket = socket
 			if !tm.HasSession() {
-				return fmt.Errorf("no active agent-tutor session")
+				return fmt.Errorf("no active agent-tutor session for %s", projectDir)
 			}
 			if err := tm.KillSession(); err != nil {
 				return fmt.Errorf("killing session: %w", err)
 			}
-			fmt.Println("Agent Tutor session stopped.")
+			fmt.Printf("Agent Tutor session stopped (%s).\n", sessName)
 			return nil
 		},
 	}
@@ -48,4 +52,16 @@ func socketFromConfig() string {
 		return ""
 	}
 	return cfg.Tmux.Socket
+}
+
+// resolveProjectDir returns an absolute project directory from CLI args,
+// falling back to the current working directory.
+func resolveProjectDir(args []string) string {
+	if len(args) > 0 {
+		if abs, err := filepath.Abs(args[0]); err == nil {
+			return abs
+		}
+	}
+	dir, _ := os.Getwd()
+	return dir
 }

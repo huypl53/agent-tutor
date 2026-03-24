@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -13,8 +12,6 @@ import (
 	"github.com/huypl53/agent-tutor/internal/plugin"
 	"github.com/huypl53/agent-tutor/internal/tmux"
 )
-
-const sessionName = "agent-tutor"
 
 func NewStartCmd() *cobra.Command {
 	return &cobra.Command{
@@ -27,14 +24,7 @@ func NewStartCmd() *cobra.Command {
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
-	projectDir, _ := os.Getwd()
-	if len(args) > 0 {
-		var err error
-		projectDir, err = filepath.Abs(args[0])
-		if err != nil {
-			return err
-		}
-	}
+	projectDir := resolveProjectDir(args)
 
 	cfg, err := config.Load(projectDir)
 	if err != nil {
@@ -50,10 +40,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	tm := tmux.New(sessionName)
+	sessName := SessionName(projectDir)
+	tm := tmux.New(sessName)
 	tm.Socket = cfg.Tmux.Socket
 	if tm.HasSession() {
-		return fmt.Errorf("session %q already exists — run 'agent-tutor stop' first", sessionName)
+		return fmt.Errorf("session %q already exists — run 'agent-tutor stop' first", sessName)
 	}
 
 	if err := tm.CreateSession(projectDir); err != nil {
@@ -71,7 +62,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		"mcpServers": map[string]any{
 			"agent-tutor": map[string]any{
 				"command": self,
-				"args":    []string{"mcp", "--project-dir", projectDir, "--socket", cfg.Tmux.Socket},
+				"args":    []string{"mcp", "--project-dir", projectDir, "--socket", cfg.Tmux.Socket, "--session", sessName},
 			},
 		},
 	}
@@ -83,6 +74,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Agent Tutor session started.\n")
+	fmt.Printf("  Session: %s\n", sessName)
 	fmt.Printf("  Project: %s\n", projectDir)
 	fmt.Printf("  Agent: %s\n", cfg.Agent.Command)
 	fmt.Printf("  Coaching: %s\n", cfg.GetIntensity())
@@ -90,6 +82,6 @@ func runStart(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Left pane: your terminal. Right pane: your coding agent.\n")
 	fmt.Printf("Type /atu:check in the agent to get feedback on your work.\n\n")
 
-	attachCmd := fmt.Sprintf("tmux -L %q attach-session -t %s", cfg.Tmux.Socket, sessionName)
+	attachCmd := fmt.Sprintf("tmux -L %q attach-session -t %s", cfg.Tmux.Socket, sessName)
 	return syscall.Exec("/usr/bin/env", []string{"env", "bash", "-c", attachCmd}, os.Environ())
 }
