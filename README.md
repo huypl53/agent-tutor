@@ -29,8 +29,8 @@ Type `/check` in the agent pane to request feedback on your current work.
 | Command | Description |
 |---------|-------------|
 | `agent-tutor start [project-dir]` | Start a tutoring session (defaults to current directory) |
-| `agent-tutor stop` | Stop the current tutoring session |
-| `agent-tutor status` | Check if a tutoring session is running |
+| `agent-tutor stop [--socket NAME]` | Stop the current tutoring session |
+| `agent-tutor status [--socket NAME]` | Check if a tutoring session is running |
 
 ## Configuration
 
@@ -54,6 +54,7 @@ git_poll_interval = "5s"
 [tmux]
 layout = "horizontal"
 user_pane_size = 50
+socket = "agent-tutor"       # isolated tmux server socket name
 ```
 
 ## Coaching intensity levels
@@ -62,9 +63,23 @@ user_pane_size = 50
 - **on-demand** -- The agent uses tutor tools only when you ask for feedback or type `/check`.
 - **proactive** -- The agent periodically checks your context and offers coaching when it spots teachable moments (errors, anti-patterns, etc.).
 
+## Testing
+
+Run unit tests:
+
+```bash
+go test ./...
+```
+
+Run E2E integration tests (requires tmux):
+
+```bash
+go test -tags integration ./internal/integration/ -v -timeout 60s
+```
+
 ## How it works (technical)
 
-The `start` command creates a tmux session, splits it into two panes, and launches the coding agent with an `--mcp-server` flag pointing to `agent-tutor mcp`. The MCP server:
+The `start` command creates an isolated tmux session (via `tmux -L agent-tutor`), splits it into two panes, and launches the coding agent with an `--mcp-server` flag pointing to `agent-tutor mcp`. Using a dedicated tmux socket prevents interference with your existing tmux sessions. The MCP server:
 
 1. **Watchers** (file, terminal, git) observe the student's activity and push events into a ring-buffer context store.
 2. **MCP tools** (`get_student_context`, `get_recent_file_changes`, `get_terminal_activity`, `get_git_activity`, `get_coaching_config`, `set_coaching_intensity`) let the agent query that store.

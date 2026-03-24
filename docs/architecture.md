@@ -136,14 +136,18 @@ Student activity
 
 7. **Config auto-creation** -- If no `.agent-tutor/config.toml` exists, a default is written on first `start`. This gives users a file to edit without requiring a separate `init` command.
 
+8. **Isolated tmux socket** -- Uses `tmux -L agent-tutor` to run in a separate tmux server. This prevents interference with the user's existing tmux sessions and enables parallel E2E testing. The socket name is configurable via `[tmux] socket` in config or `--socket` CLI flag.
+
 ## internal/tmux
 
 The `tmux` package (`internal/tmux/tmux.go`) provides a `Manager` struct that wraps tmux CLI commands via `os/exec`.
 
 ### Design
 
-- **Command builders** (unexported): `createSessionCmd`, `splitPaneCmd`, `capturePaneCmd`, `sendKeysCmd`, `killSessionCmd`, `hasSessionCmd` -- these construct `*exec.Cmd` values without running them, making them easy to test without a real tmux server.
+- **Socket isolation**: The `Socket` field, when set, prepends `-L <socket>` to every tmux command via the `tmuxCmd()` helper. This runs commands against a dedicated tmux server instance.
+- **Command builders** (unexported): `createSessionCmd`, `splitPaneCmd`, `capturePaneCmd`, `sendKeysCmd`, `killSessionCmd`, `hasSessionCmd` -- these construct `*exec.Cmd` values via `tmuxCmd()` without running them, making them easy to test without a real tmux server.
 - **Public methods**: `CreateSession`, `SplitPane`, `SendKeys`, `CapturePane`, `KillSession`, `HasSession` -- these call the corresponding builder and execute the command.
+- **Pane targeting**: Panes are addressed as `session:0.paneID` (window.pane format), not `session:paneID` (which would target a window).
 
 ### Testing approach
 
@@ -179,7 +183,7 @@ type Watcher interface {
 
 ### TerminalWatcher (`terminal.go`)
 
-Polls tmux `capture-pane` at a configurable interval, diffs against the previous capture, and stores new output as `TerminalEvent` in the store.
+Polls tmux `capture-pane` at a configurable interval, diffs against the previous capture, and stores new output as `TerminalEvent` in the store. Accepts an optional `socket` parameter to target an isolated tmux server via `-L`.
 
 **Diff logic** (`diff(old, new string) string`):
 - If content is identical, returns empty string.
@@ -221,3 +225,18 @@ The `mcp` package implements an MCP server over stdio using the official Go SDK 
 ## internal/trigger
 
 Rule-based event trigger. Each rule has an event name, threshold count, and cooldown duration. The `Fire(event)` method increments the counter and calls the callback when threshold is reached and cooldown has elapsed. Thread-safe via mutex.
+
+## E2E Integration Tests (`internal/integration`)
+
+End-to-end tests that run in an isolated tmux server (`-L agent-tutor-test`). Build-tagged with `//go:build integration` so they don't run during `go test ./...`.
+
+### Tests
+
+- **TestE2ESessionLifecycle** -- Verifies session creation and 2-pane layout.
+- **TestE2EGoLearnerActivity** -- Simulates a Go learner writing buggy code, fixing it, building, running, and committing. Verifies the trigger engine detects the commit.
+
+### Running
+
+```bash
+go test -tags integration ./internal/integration/ -v -timeout 60s
+```
