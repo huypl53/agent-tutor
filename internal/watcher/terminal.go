@@ -109,7 +109,7 @@ func (tw *TerminalWatcher) loop(ctx context.Context) {
 // poll captures the current tmux pane content, diffs it against the last
 // capture, and stores any new output as a TerminalEvent.
 func (tw *TerminalWatcher) poll(ctx context.Context) {
-	target := fmt.Sprintf("%s:%s", tw.session, tw.paneID)
+	target := fmt.Sprintf("%s:0.%s", tw.session, tw.paneID)
 	args := []string{}
 	if tw.socket != "" {
 		args = append(args, "-L", tw.socket)

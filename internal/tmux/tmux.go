@@ -38,12 +38,12 @@ func (m *Manager) splitPaneCmd(sizePercent int, layout string) *exec.Cmd {
 }
 
 func (m *Manager) capturePaneCmd(paneID string) *exec.Cmd {
-	target := fmt.Sprintf("%s:%s", m.Session, paneID)
+	target := fmt.Sprintf("%s:0.%s", m.Session, paneID)
 	return m.tmuxCmd("capture-pane", "-t", target, "-p", "-J")
 }
 
 func (m *Manager) sendKeysCmd(paneID string, keys string) *exec.Cmd {
-	target := fmt.Sprintf("%s:%s", m.Session, paneID)
+	target := fmt.Sprintf("%s:0.%s", m.Session, paneID)
 	return m.tmuxCmd("send-keys", "-t", target, keys, "Enter")
 }
 
