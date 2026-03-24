@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/huypl53/agent-tutor/internal/config"
 	"github.com/huypl53/agent-tutor/internal/tmux"
@@ -64,11 +65,11 @@ func New(tm *tmux.Manager, cfg *config.Config, sessName string) Model {
 
 // Init returns the initial command that starts the tick loop and clears the screen.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tick(), tea.ClearScreen)
+	return tea.Batch(tick(m.panes[0].TickInterval()), tea.ClearScreen)
 }
 
-func tick() tea.Cmd {
-	return tea.Tick(50*time.Millisecond, func(time.Time) tea.Msg {
+func tick(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(time.Time) tea.Msg {
 		return tickMsg{}
 	})
 }
@@ -87,10 +88,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for i := range m.panes {
 			_ = m.panes[i].Capture()
 		}
-		interval := m.panes[m.activePane].TickInterval()
-		return m, tea.Tick(interval, func(time.Time) tea.Msg {
-			return tickMsg{}
-		})
+		i0 := m.panes[0].TickInterval()
+		i1 := m.panes[1].TickInterval()
+		interval := i0
+		if i1 < i0 {
+			interval = i1
+		}
+		return m, tick(interval)
 
 	case tea.KeyMsg:
 		switch {
@@ -121,6 +125,7 @@ func (m Model) View() string {
 	}
 
 	statusHeight := 1
+	// 4 accounts for top+bottom borders of 2 pane boxes
 	availHeight := m.height - statusHeight - 4
 
 	pane0Content := m.renderPane(0, availHeight)
@@ -137,6 +142,33 @@ func (m Model) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, panes, status)
 }
 
+func (m Model) paneDimensions(idx, availHeight int) (width, height int) {
+	if m.layout == "vertical" {
+		width = m.width - 2
+		first := (availHeight * m.splitRatio) / 100
+		if idx == 0 {
+			height = first
+		} else {
+			height = availHeight - first
+		}
+	} else {
+		first := (m.width * m.splitRatio) / 100
+		if idx == 0 {
+			width = first - 2
+		} else {
+			width = m.width - first - 2
+		}
+		height = availHeight
+	}
+	if width < 1 {
+		width = 1
+	}
+	if height < 1 {
+		height = 1
+	}
+	return
+}
+
 func (m Model) renderPane(idx int, availHeight int) string {
 	pane := m.panes[idx]
 	style := m.styles.UnfocusedBorder
@@ -144,31 +176,7 @@ func (m Model) renderPane(idx int, availHeight int) string {
 		style = m.styles.FocusedBorder
 	}
 
-	var paneWidth, paneHeight int
-	if m.layout == "vertical" {
-		paneWidth = m.width - 2
-		first := (availHeight * m.splitRatio) / 100
-		if idx == 0 {
-			paneHeight = first
-		} else {
-			paneHeight = availHeight - first
-		}
-	} else {
-		first := (m.width * m.splitRatio) / 100
-		if idx == 0 {
-			paneWidth = first - 2
-		} else {
-			paneWidth = m.width - first - 2
-		}
-		paneHeight = availHeight
-	}
-
-	if paneWidth < 1 {
-		paneWidth = 1
-	}
-	if paneHeight < 1 {
-		paneHeight = 1
-	}
+	paneWidth, paneHeight := m.paneDimensions(idx, availHeight)
 
 	content := m.fitContent(pane.Content(), paneWidth, paneHeight)
 	title := fmt.Sprintf(" %s ", pane.Label())
@@ -185,8 +193,8 @@ func (m Model) fitContent(content string, width, height int) string {
 		lines = lines[len(lines)-visible:]
 	}
 	for i, line := range lines {
-		if len(line) > width {
-			lines[i] = line[:width]
+		if ansi.StringWidth(line) > width {
+			lines[i] = ansi.Truncate(line, width, "")
 		}
 	}
 	return strings.Join(lines, "\n")
@@ -198,27 +206,11 @@ func (m Model) renderStatusBar() string {
 
 func (m Model) syncTmuxPaneSizes() {
 	statusHeight := 1
+	// 4 accounts for top+bottom borders of 2 pane boxes
 	availHeight := m.height - statusHeight - 4
 
 	for i := range m.panes {
-		var pw, ph int
-		if m.layout == "vertical" {
-			pw = m.width - 2
-			first := (availHeight * m.splitRatio) / 100
-			if i == 0 {
-				ph = first
-			} else {
-				ph = availHeight - first
-			}
-		} else {
-			first := (m.width * m.splitRatio) / 100
-			if i == 0 {
-				pw = first - 2
-			} else {
-				pw = m.width - first - 2
-			}
-			ph = availHeight
-		}
+		pw, ph := m.paneDimensions(i, availHeight)
 		if pw > 0 && ph > 0 {
 			_ = m.tm.ResizePane(m.panes[i].targetID, pw, ph)
 		}

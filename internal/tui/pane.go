@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/huypl53/agent-tutor/internal/tmux"
@@ -17,6 +18,7 @@ type PaneModel struct {
 	activeMs       int
 	idleMs         int
 	idleThresholdS int
+	errCount       int
 	tm             *tmux.Manager
 }
 
@@ -59,8 +61,13 @@ func (p *PaneModel) TickInterval() time.Duration {
 func (p *PaneModel) Capture() error {
 	content, err := p.tm.CapturePaneANSI(p.targetID)
 	if err != nil {
+		p.errCount++
+		if p.errCount >= 5 {
+			p.content = fmt.Sprintf("[tmux capture failed: %v]", err)
+		}
 		return err
 	}
+	p.errCount = 0
 	if content != p.content {
 		p.lastActive = time.Now()
 		p.content = content
