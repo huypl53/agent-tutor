@@ -152,6 +152,8 @@ Student activity
 
 8. **Isolated tmux socket** -- Uses `tmux -L agent-tutor` to run in a separate tmux server. This prevents interference with the user's existing tmux sessions and enables parallel E2E testing. The socket name is configurable via `[tmux] socket` in config or `--socket` CLI flag.
 
+9. **Per-project session names** -- Session names are derived from the project directory path (`agent-tutor-<basename>-<hash>`), allowing multiple tutoring sessions to run concurrently across different projects on the same tmux socket.
+
 ## internal/tmux
 
 The `tmux` package (`internal/tmux/tmux.go`) provides a `Manager` struct that wraps tmux CLI commands via `os/exec`.
@@ -231,12 +233,16 @@ The `mcp` package implements an MCP server over stdio using the official Go SDK 
 
 ### Commands
 
-- **`start [project-dir]`** (`start.go`): Loads config, auto-installs plugin if missing, creates tmux session, splits panes, sends agent command with `--mcp-config` and `--plugin-dir`, then `syscall.Exec`s into `tmux attach-session`.
-- **`stop`** (`stop.go`): Kills the tmux session.
-- **`status`** (`status.go`): Reports whether a session is running.
+- **`start [project-dir]`** (`start.go`): Loads config, auto-installs plugin if missing, creates tmux session with a per-project session name, splits panes, sends agent command with `--mcp-config`, `--plugin-dir`, and `--session`, then `syscall.Exec`s into `tmux attach-session`.
+- **`stop [project-dir]`** (`stop.go`): Derives session name from project dir and kills the tmux session.
+- **`status [project-dir]`** (`status.go`): Derives session name from project dir and reports whether a session is running.
 - **`install-plugin`** (`install_plugin.go`): Extracts embedded plugin files and appends tutor instructions to CLAUDE.md. `--scope local|global`.
 - **`uninstall-plugin`** (`uninstall_plugin.go`): Removes plugin files and tutor instructions. `--scope local|global`.
-- **`mcp`** (`mcp.go`): Hidden command. Creates store, starts watchers, initializes trigger engine, runs MCP server on stdio.
+- **`mcp`** (`mcp.go`): Hidden command. Accepts `--session` flag (derived from project-dir if empty). Creates store, starts watchers, initializes trigger engine, runs MCP server on stdio.
+
+### Session naming (`session.go`)
+
+Session names are derived deterministically from the project directory: `agent-tutor-<basename>-<sha256[:8]>`. The basename is sanitised (dots/colons replaced with dashes). The hash ensures uniqueness when two projects share the same basename but have different parent paths. This enables concurrent tutoring sessions across multiple projects.
 
 ## internal/trigger
 
