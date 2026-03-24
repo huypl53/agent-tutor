@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/huypl53/agent-tutor/internal/config"
+	"github.com/huypl53/agent-tutor/internal/plugin"
 	"github.com/huypl53/agent-tutor/internal/tmux"
 )
 
@@ -40,6 +41,15 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
+	// Auto-install plugin if not present
+	pluginDir := plugin.PluginDir(projectDir)
+	if !plugin.IsInstalled(projectDir) {
+		fmt.Println("Installing agent-tutor plugin...")
+		if err := plugin.Install(projectDir, plugin.ScopeLocal); err != nil {
+			return fmt.Errorf("auto-installing plugin: %w", err)
+		}
+	}
+
 	tm := tmux.New(sessionName)
 	tm.Socket = cfg.Tmux.Socket
 	if tm.HasSession() {
@@ -66,7 +76,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		},
 	}
 	mcpJSON, _ := json.Marshal(mcpConfig)
-	agentCmd := fmt.Sprintf("%s --mcp-config '%s'", cfg.Agent.Command, string(mcpJSON))
+	agentCmd := fmt.Sprintf("%s --mcp-config '%s' --plugin-dir %q", cfg.Agent.Command, string(mcpJSON), pluginDir)
 	if err := tm.SendKeys("1", agentCmd); err != nil {
 		tm.KillSession()
 		return fmt.Errorf("starting agent: %w", err)
@@ -78,7 +88,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  Coaching: %s\n", cfg.GetIntensity())
 	fmt.Printf("\nAttaching to tmux session...\n")
 	fmt.Printf("Left pane: your terminal. Right pane: your coding agent.\n")
-	fmt.Printf("Type /check in the agent to get feedback on your work.\n\n")
+	fmt.Printf("Type /atu:check in the agent to get feedback on your work.\n\n")
 
 	attachCmd := fmt.Sprintf("tmux -L %q attach-session -t %s", cfg.Tmux.Socket, sessionName)
 	return syscall.Exec("/usr/bin/env", []string{"env", "bash", "-c", attachCmd}, os.Environ())
