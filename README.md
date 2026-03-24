@@ -22,7 +22,7 @@ agent-tutor start ~/myproject
 
 This opens a tmux session. Work in the left pane as normal. The agent in the right pane can observe what you're doing and offer guidance based on the coaching intensity level.
 
-Type `/check` in the agent pane to request feedback on your current work.
+Type `/atu:check` in the agent pane to request feedback on your current work.
 
 ## Commands
 
@@ -31,6 +31,31 @@ Type `/check` in the agent pane to request feedback on your current work.
 | `agent-tutor start [project-dir]` | Start a tutoring session (defaults to current directory) |
 | `agent-tutor stop [--socket NAME]` | Stop the current tutoring session |
 | `agent-tutor status [--socket NAME]` | Check if a tutoring session is running |
+| `agent-tutor install-plugin [--scope]` | Install Claude Code plugin and tutor instructions |
+| `agent-tutor uninstall-plugin [--scope]` | Remove Claude Code plugin and tutor instructions |
+
+## Plugin Installation
+
+Agent-tutor includes a Claude Code plugin with coaching slash commands. It is auto-installed on `agent-tutor start`, or you can install it manually:
+
+```bash
+# Install in current project (default)
+agent-tutor install-plugin
+
+# Install globally for all projects
+agent-tutor install-plugin --scope global
+
+# Remove
+agent-tutor uninstall-plugin
+```
+
+### Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/atu:check` | Comprehensive review of recent coding activity |
+| `/atu:hint` | Quick nudge — one teaching point |
+| `/atu:explain` | Explain the most recent error or output |
 
 ## Configuration
 
@@ -60,7 +85,7 @@ socket = "agent-tutor"       # isolated tmux server socket name
 ## Coaching intensity levels
 
 - **silent** -- The agent never coaches unless you explicitly ask.
-- **on-demand** -- The agent uses tutor tools only when you ask for feedback or type `/check`.
+- **on-demand** -- The agent uses tutor tools only when you ask for feedback or type `/atu:check`.
 - **proactive** -- The agent periodically checks your context and offers coaching when it spots teachable moments (errors, anti-patterns, etc.).
 
 ## Testing

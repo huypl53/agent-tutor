@@ -45,12 +45,26 @@
 
 ### CLI (`cmd/agent-tutor`, `internal/cli`)
 
-Cobra-based CLI with four commands:
+Cobra-based CLI with six commands:
 
-- **start** -- Creates tmux session, splits panes, launches agent with MCP server, then `syscall.Exec`s into `tmux attach-session`.
+- **start** -- Creates tmux session, splits panes, auto-installs plugin if missing, launches agent with MCP server and `--plugin-dir`, then `syscall.Exec`s into `tmux attach-session`.
 - **stop** -- Kills the tmux session.
 - **status** -- Reports whether a session is running.
+- **install-plugin** -- Extracts embedded plugin files and appends tutor instructions to CLAUDE.md. Supports `--scope local|global`.
+- **uninstall-plugin** -- Removes plugin files and tutor instructions from CLAUDE.md. Supports `--scope local|global`.
 - **mcp** (hidden) -- Spawned by the agent process. Creates the store, starts watchers, initializes trigger engine, and runs the MCP server on stdio. Handles SIGINT/SIGTERM.
+
+### Plugin (`internal/plugin`)
+
+Embeds Claude Code plugin files via `//go:embed all:embed` (the `all:` prefix is needed to include the `.claude-plugin` hidden directory). The `Install()` function extracts plugin files and appends a tutor instruction section to `.claude/CLAUDE.md` with `<!-- BEGIN AGENT-TUTOR -->` / `<!-- END AGENT-TUTOR -->` sentinel comments for clean uninstall.
+
+Two scopes:
+- **local**: Plugin in `.agent-tutor/plugin/`, instructions in `.claude/CLAUDE.md`
+- **global**: Skills in `~/.claude/skills/atu-*/`, instructions in `~/.claude/CLAUDE.md`
+
+The `start` command auto-installs locally if the plugin is not present, and passes `--plugin-dir` to the claude command.
+
+Note: Embedded command files use dashes (`atu-check.md`) because Go's embed package forbids colons in filenames. A `restoreColons()` helper maps them back to colons (`atu:check.md`) during local extraction for Claude Code command registration.
 
 ### Config (`internal/config`)
 
@@ -217,9 +231,11 @@ The `mcp` package implements an MCP server over stdio using the official Go SDK 
 
 ### Commands
 
-- **`start [project-dir]`** (`start.go`): Loads config, creates tmux session, splits panes, sends agent command with `--mcp-config` (JSON with `agent-tutor` as stdio MCP server), then `syscall.Exec`s into `tmux attach-session`.
+- **`start [project-dir]`** (`start.go`): Loads config, auto-installs plugin if missing, creates tmux session, splits panes, sends agent command with `--mcp-config` and `--plugin-dir`, then `syscall.Exec`s into `tmux attach-session`.
 - **`stop`** (`stop.go`): Kills the tmux session.
 - **`status`** (`status.go`): Reports whether a session is running.
+- **`install-plugin`** (`install_plugin.go`): Extracts embedded plugin files and appends tutor instructions to CLAUDE.md. `--scope local|global`.
+- **`uninstall-plugin`** (`uninstall_plugin.go`): Removes plugin files and tutor instructions. `--scope local|global`.
 - **`mcp`** (`mcp.go`): Hidden command. Creates store, starts watchers, initializes trigger engine, runs MCP server on stdio.
 
 ## internal/trigger
