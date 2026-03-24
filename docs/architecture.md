@@ -10,7 +10,7 @@
 │  │   (pane 0)            │  │   (pane 1)           │  │
 │  │                       │  │                      │  │
 │  │   Student works       │  │   claude             │  │
-│  │   here                │  │   --mcp-server       │  │
+│  │   here                │  │   --mcp-config       │  │
 │  │                       │  │   'agent-tutor mcp'  │  │
 │  └───────────────────────┘  └──────────┬───────────┘  │
 │                                        │              │
@@ -138,7 +138,7 @@ Student activity
 
 1. **tmux-based layout** -- Uses tmux rather than a custom terminal multiplexer. This avoids reinventing terminal handling and lets the student use their normal shell. The `start` command `syscall.Exec`s into tmux so the user's process is fully replaced.
 
-2. **MCP over stdio** -- The MCP server runs as a subprocess of the coding agent (via `--mcp-server`), communicating over stdin/stdout. This is the standard MCP transport and requires no network ports.
+2. **MCP over stdio** -- The MCP server runs as a subprocess of the coding agent (via `--mcp-config`), communicating over stdin/stdout. This is the standard MCP transport and requires no network ports.
 
 3. **Ring buffer store** -- Fixed-capacity ring buffers prevent unbounded memory growth. Capacities (100/50/30) are tuned so the agent sees enough recent context without being overwhelmed.
 
