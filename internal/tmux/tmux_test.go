@@ -1,6 +1,7 @@
 package tmux
 
 import (
+	"os/exec"
 	"testing"
 )
 
@@ -47,5 +48,35 @@ func TestBuildCapturePaneCmd(t *testing.T) {
 	}
 	if !found {
 		t.Error("capture-pane not found in command args")
+	}
+}
+
+func TestSocketAppearsInCommands(t *testing.T) {
+	m := New("test-session")
+	m.Socket = "test-sock"
+
+	cmds := []*exec.Cmd{
+		m.createSessionCmd("/tmp"),
+		m.splitPaneCmd(50, "horizontal"),
+		m.capturePaneCmd("0"),
+		m.sendKeysCmd("0", "echo hi"),
+		m.killSessionCmd(),
+		m.hasSessionCmd(),
+	}
+
+	for _, cmd := range cmds {
+		if cmd.Args[1] != "-L" || cmd.Args[2] != "test-sock" {
+			t.Errorf("expected -L test-sock in args, got %v", cmd.Args)
+		}
+	}
+}
+
+func TestNoSocketOmitsFlag(t *testing.T) {
+	m := New("test-session")
+	cmd := m.createSessionCmd("/tmp")
+	for _, a := range cmd.Args {
+		if a == "-L" {
+			t.Error("should not have -L flag when Socket is empty")
+		}
 	}
 }
