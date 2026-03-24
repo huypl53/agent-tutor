@@ -14,6 +14,7 @@ type Config struct {
 	Agent    AgentConfig   `toml:"agent"`
 	Watchers WatcherConfig `toml:"watchers"`
 	Tmux     TmuxConfig    `toml:"tmux"`
+	TUI      TUIConfig     `toml:"tui"`
 }
 
 func (c *Config) SetIntensity(intensity string) {
@@ -57,6 +58,20 @@ type TmuxConfig struct {
 	Socket       string `toml:"socket"`
 }
 
+type TUIPollingConfig struct {
+	ActiveMs       int `toml:"active_ms"`
+	IdleMs         int `toml:"idle_ms"`
+	IdleThresholdS int `toml:"idle_threshold_s"`
+}
+
+type TUIConfig struct {
+	Layout     string           `toml:"layout"`
+	SplitRatio int              `toml:"split_ratio"`
+	FocusKey   string           `toml:"focus_key"`
+	QuitKey    string           `toml:"quit_key"`
+	Polling    TUIPollingConfig `toml:"polling"`
+}
+
 func Default() *Config {
 	return &Config{
 		Tutor: TutorConfig{
@@ -77,6 +92,17 @@ func Default() *Config {
 			Layout:       "horizontal",
 			UserPaneSize: 50,
 			Socket:       "agent-tutor",
+		},
+		TUI: TUIConfig{
+			Layout:     "horizontal",
+			SplitRatio: 50,
+			FocusKey:   "ctrl+space",
+			QuitKey:    "ctrl+q",
+			Polling: TUIPollingConfig{
+				ActiveMs:       50,
+				IdleMs:         200,
+				IdleThresholdS: 10,
+			},
 		},
 	}
 }

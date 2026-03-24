@@ -45,9 +45,10 @@
 
 ### CLI (`cmd/agent-tutor`, `internal/cli`)
 
-Cobra-based CLI with six commands:
+Cobra-based CLI with seven commands:
 
-- **start** -- Creates tmux session, splits panes, auto-installs plugin if missing, launches agent with MCP server and `--plugin-dir`, then `syscall.Exec`s into `tmux attach-session`.
+- **start** -- Creates tmux session, splits panes, auto-installs plugin if missing, launches agent with MCP server and `--plugin-dir`, then `syscall.Exec`s into `tmux attach-session`. Supports `--tui` flag to launch the bubbletea TUI instead of tmux attach.
+- **tui** -- Launches the bubbletea TUI for an existing tmux session. The TUI is a detachable view layer; quitting the TUI leaves the tmux session running.
 - **stop** -- Kills the tmux session.
 - **status** -- Reports whether a session is running.
 - **install-plugin** -- Extracts embedded plugin files and appends tutor instructions to CLAUDE.md. Supports `--scope local|global`.
@@ -70,7 +71,17 @@ Embedded commands: `atu-check.md`, `atu-hint.md`, `atu-explain.md`, `atu-save.md
 
 ### Config (`internal/config`)
 
-TOML-based configuration loaded from `.agent-tutor/config.toml` in the project directory. Creates a default config on first run. Sections: `[tutor]`, `[agent]`, `[watchers]`, `[tmux]`.
+TOML-based configuration loaded from `.agent-tutor/config.toml` in the project directory. Creates a default config on first run. Sections: `[tutor]`, `[agent]`, `[watchers]`, `[tmux]`, `[tui]`.
+
+### TUI Layer (`internal/tui`)
+
+Bubbletea-based terminal UI that acts as a thin view layer over tmux. Components:
+
+- **`app.go`** — Main bubbletea Model with Init/Update/View. Wires panes, status bar, key handling, and adaptive polling. Handles `WindowSizeMsg` (syncs tmux pane dimensions), `tickMsg` (captures both panes), and `KeyMsg` (quit, focus switch, or forward to tmux).
+- **`pane.go`** — `PaneModel` wraps a single tmux pane. Captures content via `CapturePaneANSI`, forwards input via `SendKeysRaw`, and computes adaptive tick intervals (50ms active → 200ms idle).
+- **`statusbar.go`** — Bottom status bar showing active pane indicator, session name, coaching mode, and focus keybinding hint.
+- **`keymap.go`** — Configurable key bindings (parsed from config strings like "ctrl+space") and `KeyToTmux()` translator that maps bubbletea key events to tmux send-keys arguments.
+- **`styles.go`** — Lipgloss styles for focused/unfocused pane borders and status bar colors.
 
 ### Context Store (`internal/store`)
 
@@ -86,7 +97,7 @@ Thread-safe via `sync.RWMutex`. The `Summary(since)` method produces a markdown-
 
 ### Tmux Manager (`internal/tmux`)
 
-Wraps tmux CLI commands via `os/exec`. Methods: `CreateSession`, `SplitPane`, `SendKeys`, `CapturePane`, `KillSession`, `HasSession`. Command construction is separated from execution for testability.
+Wraps tmux CLI commands via `os/exec`. Methods: `CreateSession`, `SplitPane`, `SendKeys`, `CapturePane`, `CapturePaneANSI`, `SendKeysRaw`, `ResizePane`, `KillSession`, `HasSession`. Command construction is separated from execution for testability. The `CapturePaneANSI` method uses the `-e` flag to preserve ANSI escape sequences for the TUI's raw passthrough rendering. `SendKeysRaw` sends keys without appending Enter (used by the TUI for individual keystroke forwarding). `ResizePane` syncs tmux pane dimensions when the TUI window resizes.
 
 ### Watchers (`internal/watcher`)
 
@@ -164,6 +175,8 @@ No server-side MCP tool is needed — Claude's built-in file writing capability 
 8. **Isolated tmux socket** -- Uses `tmux -L agent-tutor` to run in a separate tmux server. This prevents interference with the user's existing tmux sessions and enables parallel E2E testing. The socket name is configurable via `[tmux] socket` in config or `--socket` CLI flag.
 
 9. **Per-project session names** -- Session names are derived from the project directory path (`agent-tutor-<basename>-<hash>`), allowing multiple tutoring sessions to run concurrently across different projects on the same tmux socket.
+
+10. **TUI as a separate command** -- The `tui` command is a detachable view layer, not a replacement for `tmux attach`. Users can freely start/stop the TUI without affecting the running session. This preserves backward compatibility and gives users the flexibility to use the TUI or raw tmux interchangeably.
 
 ## internal/tmux
 
@@ -244,7 +257,8 @@ The `mcp` package implements an MCP server over stdio using the official Go SDK 
 
 ### Commands
 
-- **`start [project-dir]`** (`start.go`): Loads config, auto-installs plugin if missing, creates tmux session with a per-project session name, splits panes, sends agent command with `--mcp-config`, `--plugin-dir`, and `--session`, then `syscall.Exec`s into `tmux attach-session`.
+- **`start [project-dir]`** (`start.go`): Loads config, auto-installs plugin if missing, creates tmux session with a per-project session name, splits panes, sends agent command with `--mcp-config`, `--plugin-dir`, and `--session`, then `syscall.Exec`s into `tmux attach-session`. With `--tui` flag, launches the bubbletea TUI instead.
+- **`tui [project-dir]`** (`tui.go`): Launches the bubbletea TUI for an existing tmux session. Quitting the TUI leaves the session running.
 - **`stop [project-dir]`** (`stop.go`): Derives session name from project dir and kills the tmux session.
 - **`status [project-dir]`** (`status.go`): Derives session name from project dir and reports whether a session is running.
 - **`install-plugin`** (`install_plugin.go`): Extracts embedded plugin files and appends tutor instructions to CLAUDE.md. `--scope local|global`.
