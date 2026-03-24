@@ -79,6 +79,8 @@ Each lesson file follows this structure:
     ## Key Takeaway
     ## Common Mistakes
 
+Lessons are saved to your project directory. Add `lessons/` to `.gitignore` to keep them local, or commit them to share with others.
+
 ## Configuration
 
 Agent Tutor stores config in `.agent-tutor/config.toml` inside your project directory. A default config is created on first run.

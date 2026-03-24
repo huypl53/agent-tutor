@@ -61,6 +61,7 @@ After giving coaching feedback in these situations, also save a lesson file to `
 - Whenever you explain a non-trivial concept and it would be valuable for review
 
 Write each lesson to ` + "`./lessons/YYYY-MM-DD-<topic-slug>.md`" + ` using this template:
+Create the ` + "`./lessons/`" + ` directory if it does not exist.
 
     # <Topic Title>
 

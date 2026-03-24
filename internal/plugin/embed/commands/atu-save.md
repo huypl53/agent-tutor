@@ -9,6 +9,7 @@ Save a structured lesson based on the current coaching context.
 2. Call `get_coaching_config` to check the student's level
 
 Write a markdown file to `./lessons/YYYY-MM-DD-<topic-slug>.md` where:
+- Create the `./lessons/` directory if it does not exist.
 - YYYY-MM-DD is today's date
 - topic-slug is a short kebab-case summary of the topic (e.g. "understanding-goroutines")
 
