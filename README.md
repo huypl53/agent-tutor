@@ -22,15 +22,40 @@ agent-tutor start ~/myproject
 
 This opens a tmux session. Work in the left pane as normal. The agent in the right pane can observe what you're doing and offer guidance based on the coaching intensity level.
 
-Type `/check` in the agent pane to request feedback on your current work.
+Type `/atu:check` in the agent pane to request feedback on your current work.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `agent-tutor start [project-dir]` | Start a tutoring session (defaults to current directory) |
-| `agent-tutor stop` | Stop the current tutoring session |
-| `agent-tutor status` | Check if a tutoring session is running |
+| `agent-tutor stop [--socket NAME]` | Stop the current tutoring session |
+| `agent-tutor status [--socket NAME]` | Check if a tutoring session is running |
+| `agent-tutor install-plugin [--scope]` | Install Claude Code plugin and tutor instructions |
+| `agent-tutor uninstall-plugin [--scope]` | Remove Claude Code plugin and tutor instructions |
+
+## Plugin Installation
+
+Agent-tutor includes a Claude Code plugin with coaching slash commands. It is auto-installed on `agent-tutor start`, or you can install it manually:
+
+```bash
+# Install in current project (default)
+agent-tutor install-plugin
+
+# Install globally for all projects
+agent-tutor install-plugin --scope global
+
+# Remove
+agent-tutor uninstall-plugin
+```
+
+### Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/atu:check` | Comprehensive review of recent coding activity |
+| `/atu:hint` | Quick nudge — one teaching point |
+| `/atu:explain` | Explain the most recent error or output |
 
 ## Configuration
 
@@ -54,17 +79,32 @@ git_poll_interval = "5s"
 [tmux]
 layout = "horizontal"
 user_pane_size = 50
+socket = "agent-tutor"       # isolated tmux server socket name
 ```
 
 ## Coaching intensity levels
 
 - **silent** -- The agent never coaches unless you explicitly ask.
-- **on-demand** -- The agent uses tutor tools only when you ask for feedback or type `/check`.
+- **on-demand** -- The agent uses tutor tools only when you ask for feedback or type `/atu:check`.
 - **proactive** -- The agent periodically checks your context and offers coaching when it spots teachable moments (errors, anti-patterns, etc.).
+
+## Testing
+
+Run unit tests:
+
+```bash
+go test ./...
+```
+
+Run E2E integration tests (requires tmux):
+
+```bash
+go test -tags integration ./internal/integration/ -v -timeout 60s
+```
 
 ## How it works (technical)
 
-The `start` command creates a tmux session, splits it into two panes, and launches the coding agent with an `--mcp-server` flag pointing to `agent-tutor mcp`. The MCP server:
+The `start` command creates an isolated tmux session (via `tmux -L agent-tutor`), splits it into two panes, auto-installs the embedded plugin if not already present, and launches the coding agent with `--mcp-config` (MCP server) and `--plugin-dir` (slash commands). Using a dedicated tmux socket prevents interference with your existing tmux sessions. The MCP server:
 
 1. **Watchers** (file, terminal, git) observe the student's activity and push events into a ring-buffer context store.
 2. **MCP tools** (`get_student_context`, `get_recent_file_changes`, `get_terminal_activity`, `get_git_activity`, `get_coaching_config`, `set_coaching_intensity`) let the agent query that store.

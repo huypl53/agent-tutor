@@ -54,6 +54,7 @@ type WatcherConfig struct {
 type TmuxConfig struct {
 	Layout       string `toml:"layout"`
 	UserPaneSize int    `toml:"user_pane_size"`
+	Socket       string `toml:"socket"`
 }
 
 func Default() *Config {
@@ -75,6 +76,7 @@ func Default() *Config {
 		Tmux: TmuxConfig{
 			Layout:       "horizontal",
 			UserPaneSize: 50,
+			Socket:       "agent-tutor",
 		},
 	}
 }

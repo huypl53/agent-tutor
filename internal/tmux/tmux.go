@@ -9,6 +9,15 @@ import (
 // Manager wraps tmux CLI commands for session management.
 type Manager struct {
 	Session string
+	Socket  string
+}
+
+// tmuxCmd builds an exec.Cmd with optional -L socket flag.
+func (m *Manager) tmuxCmd(args ...string) *exec.Cmd {
+	if m.Socket != "" {
+		args = append([]string{"-L", m.Socket}, args...)
+	}
+	return exec.Command("tmux", args...)
 }
 
 // New creates a new tmux Manager for the given session name.
@@ -17,7 +26,7 @@ func New(session string) *Manager {
 }
 
 func (m *Manager) createSessionCmd(workDir string) *exec.Cmd {
-	return exec.Command("tmux", "new-session", "-d", "-s", m.Session, "-c", workDir)
+	return m.tmuxCmd("new-session", "-d", "-s", m.Session, "-c", workDir)
 }
 
 func (m *Manager) splitPaneCmd(sizePercent int, layout string) *exec.Cmd {
@@ -25,25 +34,25 @@ func (m *Manager) splitPaneCmd(sizePercent int, layout string) *exec.Cmd {
 	if layout == "vertical" {
 		flag = "-v"
 	}
-	return exec.Command("tmux", "split-window", flag, "-t", m.Session, "-l", fmt.Sprintf("%d%%", sizePercent))
+	return m.tmuxCmd("split-window", flag, "-t", m.Session, "-l", fmt.Sprintf("%d%%", sizePercent))
 }
 
 func (m *Manager) capturePaneCmd(paneID string) *exec.Cmd {
-	target := fmt.Sprintf("%s:%s", m.Session, paneID)
-	return exec.Command("tmux", "capture-pane", "-t", target, "-p", "-J")
+	target := fmt.Sprintf("%s:0.%s", m.Session, paneID)
+	return m.tmuxCmd("capture-pane", "-t", target, "-p", "-J")
 }
 
 func (m *Manager) sendKeysCmd(paneID string, keys string) *exec.Cmd {
-	target := fmt.Sprintf("%s:%s", m.Session, paneID)
-	return exec.Command("tmux", "send-keys", "-t", target, keys, "Enter")
+	target := fmt.Sprintf("%s:0.%s", m.Session, paneID)
+	return m.tmuxCmd("send-keys", "-t", target, keys, "Enter")
 }
 
 func (m *Manager) killSessionCmd() *exec.Cmd {
-	return exec.Command("tmux", "kill-session", "-t", m.Session)
+	return m.tmuxCmd("kill-session", "-t", m.Session)
 }
 
 func (m *Manager) hasSessionCmd() *exec.Cmd {
-	return exec.Command("tmux", "has-session", "-t", m.Session)
+	return m.tmuxCmd("has-session", "-t", m.Session)
 }
 
 // CreateSession creates a new detached tmux session in the given working directory.

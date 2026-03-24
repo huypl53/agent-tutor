@@ -19,6 +19,8 @@ func main() {
 	root.AddCommand(cli.NewStopCmd())
 	root.AddCommand(cli.NewStatusCmd())
 	root.AddCommand(cli.NewMCPCmd())
+	root.AddCommand(cli.NewInstallPluginCmd())
+	root.AddCommand(cli.NewUninstallPluginCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

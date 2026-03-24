@@ -30,6 +30,7 @@ type TerminalWatcher struct {
 	paneID       string
 	pollInterval time.Duration
 	store        *store.Store
+	socket       string
 	lastContent  string
 
 	mu     sync.Mutex
@@ -38,12 +39,13 @@ type TerminalWatcher struct {
 }
 
 // NewTerminalWatcher creates a TerminalWatcher for the given tmux session and pane.
-func NewTerminalWatcher(session, paneID string, pollInterval time.Duration, s *store.Store) *TerminalWatcher {
+func NewTerminalWatcher(session, paneID string, pollInterval time.Duration, s *store.Store, socket string) *TerminalWatcher {
 	return &TerminalWatcher{
 		session:      session,
 		paneID:       paneID,
 		pollInterval: pollInterval,
 		store:        s,
+		socket:       socket,
 	}
 }
 
@@ -107,8 +109,13 @@ func (tw *TerminalWatcher) loop(ctx context.Context) {
 // poll captures the current tmux pane content, diffs it against the last
 // capture, and stores any new output as a TerminalEvent.
 func (tw *TerminalWatcher) poll(ctx context.Context) {
-	target := fmt.Sprintf("%s:%s", tw.session, tw.paneID)
-	cmd := exec.CommandContext(ctx, "tmux", "capture-pane", "-t", target, "-p", "-J")
+	target := fmt.Sprintf("%s:0.%s", tw.session, tw.paneID)
+	args := []string{}
+	if tw.socket != "" {
+		args = append(args, "-L", tw.socket)
+	}
+	args = append(args, "capture-pane", "-t", target, "-p", "-J")
+	cmd := exec.CommandContext(ctx, "tmux", args...)
 	out, err := cmd.Output()
 	if err != nil {
 		return

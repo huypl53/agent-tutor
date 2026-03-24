@@ -10,7 +10,7 @@
 │  │   (pane 0)            │  │   (pane 1)           │  │
 │  │                       │  │                      │  │
 │  │   Student works       │  │   claude             │  │
-│  │   here                │  │   --mcp-server       │  │
+│  │   here                │  │   --mcp-config       │  │
 │  │                       │  │   'agent-tutor mcp'  │  │
 │  └───────────────────────┘  └──────────┬───────────┘  │
 │                                        │              │
@@ -45,12 +45,26 @@
 
 ### CLI (`cmd/agent-tutor`, `internal/cli`)
 
-Cobra-based CLI with four commands:
+Cobra-based CLI with six commands:
 
-- **start** -- Creates tmux session, splits panes, launches agent with MCP server, then `syscall.Exec`s into `tmux attach-session`.
+- **start** -- Creates tmux session, splits panes, auto-installs plugin if missing, launches agent with MCP server and `--plugin-dir`, then `syscall.Exec`s into `tmux attach-session`.
 - **stop** -- Kills the tmux session.
 - **status** -- Reports whether a session is running.
+- **install-plugin** -- Extracts embedded plugin files and appends tutor instructions to CLAUDE.md. Supports `--scope local|global`.
+- **uninstall-plugin** -- Removes plugin files and tutor instructions from CLAUDE.md. Supports `--scope local|global`.
 - **mcp** (hidden) -- Spawned by the agent process. Creates the store, starts watchers, initializes trigger engine, and runs the MCP server on stdio. Handles SIGINT/SIGTERM.
+
+### Plugin (`internal/plugin`)
+
+Embeds Claude Code plugin files via `//go:embed all:embed` (the `all:` prefix is needed to include the `.claude-plugin` hidden directory). The `Install()` function extracts plugin files and appends a tutor instruction section to `.claude/CLAUDE.md` with `<!-- BEGIN AGENT-TUTOR -->` / `<!-- END AGENT-TUTOR -->` sentinel comments for clean uninstall.
+
+Two scopes:
+- **local**: Plugin in `.agent-tutor/plugin/`, instructions in `.claude/CLAUDE.md`
+- **global**: Skills in `~/.claude/skills/atu-*/`, instructions in `~/.claude/CLAUDE.md`
+
+The `start` command auto-installs locally if the plugin is not present, and passes `--plugin-dir` to the claude command.
+
+Note: Embedded command files use dashes (`atu-check.md`) because Go's embed package forbids colons in filenames. A `restoreColons()` helper maps them back to colons (`atu:check.md`) during local extraction for Claude Code command registration.
 
 ### Config (`internal/config`)
 
@@ -124,7 +138,7 @@ Student activity
 
 1. **tmux-based layout** -- Uses tmux rather than a custom terminal multiplexer. This avoids reinventing terminal handling and lets the student use their normal shell. The `start` command `syscall.Exec`s into tmux so the user's process is fully replaced.
 
-2. **MCP over stdio** -- The MCP server runs as a subprocess of the coding agent (via `--mcp-server`), communicating over stdin/stdout. This is the standard MCP transport and requires no network ports.
+2. **MCP over stdio** -- The MCP server runs as a subprocess of the coding agent (via `--mcp-config`), communicating over stdin/stdout. This is the standard MCP transport and requires no network ports.
 
 3. **Ring buffer store** -- Fixed-capacity ring buffers prevent unbounded memory growth. Capacities (100/50/30) are tuned so the agent sees enough recent context without being overwhelmed.
 
@@ -136,14 +150,18 @@ Student activity
 
 7. **Config auto-creation** -- If no `.agent-tutor/config.toml` exists, a default is written on first `start`. This gives users a file to edit without requiring a separate `init` command.
 
+8. **Isolated tmux socket** -- Uses `tmux -L agent-tutor` to run in a separate tmux server. This prevents interference with the user's existing tmux sessions and enables parallel E2E testing. The socket name is configurable via `[tmux] socket` in config or `--socket` CLI flag.
+
 ## internal/tmux
 
 The `tmux` package (`internal/tmux/tmux.go`) provides a `Manager` struct that wraps tmux CLI commands via `os/exec`.
 
 ### Design
 
-- **Command builders** (unexported): `createSessionCmd`, `splitPaneCmd`, `capturePaneCmd`, `sendKeysCmd`, `killSessionCmd`, `hasSessionCmd` -- these construct `*exec.Cmd` values without running them, making them easy to test without a real tmux server.
+- **Socket isolation**: The `Socket` field, when set, prepends `-L <socket>` to every tmux command via the `tmuxCmd()` helper. This runs commands against a dedicated tmux server instance.
+- **Command builders** (unexported): `createSessionCmd`, `splitPaneCmd`, `capturePaneCmd`, `sendKeysCmd`, `killSessionCmd`, `hasSessionCmd` -- these construct `*exec.Cmd` values via `tmuxCmd()` without running them, making them easy to test without a real tmux server.
 - **Public methods**: `CreateSession`, `SplitPane`, `SendKeys`, `CapturePane`, `KillSession`, `HasSession` -- these call the corresponding builder and execute the command.
+- **Pane targeting**: Panes are addressed as `session:0.paneID` (window.pane format), not `session:paneID` (which would target a window).
 
 ### Testing approach
 
@@ -179,7 +197,7 @@ type Watcher interface {
 
 ### TerminalWatcher (`terminal.go`)
 
-Polls tmux `capture-pane` at a configurable interval, diffs against the previous capture, and stores new output as `TerminalEvent` in the store.
+Polls tmux `capture-pane` at a configurable interval, diffs against the previous capture, and stores new output as `TerminalEvent` in the store. Accepts an optional `socket` parameter to target an isolated tmux server via `-L`.
 
 **Diff logic** (`diff(old, new string) string`):
 - If content is identical, returns empty string.
@@ -213,11 +231,28 @@ The `mcp` package implements an MCP server over stdio using the official Go SDK 
 
 ### Commands
 
-- **`start [project-dir]`** (`start.go`): Loads config, creates tmux session, splits panes, sends agent command with `--mcp-server` flag, then `syscall.Exec`s into `tmux attach-session`.
+- **`start [project-dir]`** (`start.go`): Loads config, auto-installs plugin if missing, creates tmux session, splits panes, sends agent command with `--mcp-config` and `--plugin-dir`, then `syscall.Exec`s into `tmux attach-session`.
 - **`stop`** (`stop.go`): Kills the tmux session.
 - **`status`** (`status.go`): Reports whether a session is running.
+- **`install-plugin`** (`install_plugin.go`): Extracts embedded plugin files and appends tutor instructions to CLAUDE.md. `--scope local|global`.
+- **`uninstall-plugin`** (`uninstall_plugin.go`): Removes plugin files and tutor instructions. `--scope local|global`.
 - **`mcp`** (`mcp.go`): Hidden command. Creates store, starts watchers, initializes trigger engine, runs MCP server on stdio.
 
 ## internal/trigger
 
 Rule-based event trigger. Each rule has an event name, threshold count, and cooldown duration. The `Fire(event)` method increments the counter and calls the callback when threshold is reached and cooldown has elapsed. Thread-safe via mutex.
+
+## E2E Integration Tests (`internal/integration`)
+
+End-to-end tests that run in an isolated tmux server (`-L agent-tutor-test`). Build-tagged with `//go:build integration` so they don't run during `go test ./...`.
+
+### Tests
+
+- **TestE2ESessionLifecycle** -- Verifies session creation and 2-pane layout.
+- **TestE2EGoLearnerActivity** -- Simulates a Go learner writing buggy code, fixing it, building, running, and committing. Verifies the trigger engine detects the commit.
+
+### Running
+
+```bash
+go test -tags integration ./internal/integration/ -v -timeout 60s
+```
