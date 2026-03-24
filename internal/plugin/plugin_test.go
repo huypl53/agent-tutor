@@ -115,10 +115,7 @@ func TestUninstallPreservesOtherContent(t *testing.T) {
 
 func TestInstallGlobal(t *testing.T) {
 	dir := t.TempDir()
-	// Override home for test
-	origHome := os.Getenv("HOME")
 	t.Setenv("HOME", dir)
-	defer os.Setenv("HOME", origHome)
 
 	if err := Install("", ScopeGlobal); err != nil {
 		t.Fatalf("Install global failed: %v", err)
@@ -144,5 +141,49 @@ func TestInstallGlobal(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "<!-- BEGIN AGENT-TUTOR -->") {
 		t.Error("missing sentinel in global CLAUDE.md")
+	}
+}
+
+func TestUninstallGlobal(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+
+	Install("", ScopeGlobal)
+	if err := Uninstall("", ScopeGlobal); err != nil {
+		t.Fatalf("Uninstall global failed: %v", err)
+	}
+
+	// Skill directories removed
+	for _, name := range []string{"atu-check", "atu-hint", "atu-explain"} {
+		path := filepath.Join(dir, ".claude", "skills", name)
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("skill directory %s should be removed", name)
+		}
+	}
+
+	// CLAUDE.md sentinel section removed
+	data, _ := os.ReadFile(filepath.Join(dir, ".claude", "CLAUDE.md"))
+	if strings.Contains(string(data), "<!-- BEGIN AGENT-TUTOR -->") {
+		t.Error("sentinel section should be removed from global CLAUDE.md")
+	}
+}
+
+func TestRestoreColons(t *testing.T) {
+	tests := []struct {
+		input, want string
+	}{
+		{"commands/atu-check.md", "commands/atu:check.md"},
+		{"commands/atu-hint.md", "commands/atu:hint.md"},
+		{"commands/atu-explain.md", "commands/atu:explain.md"},
+		{".claude-plugin/plugin.json", ".claude-plugin/plugin.json"},
+		{"atu-check.md", "atu:check.md"},
+		{"other-file.md", "other-file.md"},
+		{"commands", "commands"},
+	}
+	for _, tt := range tests {
+		got := restoreColons(tt.input)
+		if got != tt.want {
+			t.Errorf("restoreColons(%q) = %q, want %q", tt.input, got, tt.want)
+		}
 	}
 }

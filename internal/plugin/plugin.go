@@ -123,9 +123,9 @@ func installGlobal() error {
 			continue
 		}
 		name := entry.Name()
-		// "atu:check.md" -> "atu-check"
+		// Embedded filenames already use dashes (e.g. "atu-check.md")
+		// since go:embed forbids colons. Skill dirs keep dashes.
 		skillName := strings.TrimSuffix(name, ".md")
-		skillName = strings.ReplaceAll(skillName, ":", "-")
 
 		skillDir := filepath.Join(home, ".claude", "skills", skillName)
 		if err := os.MkdirAll(skillDir, 0o755); err != nil {
@@ -149,7 +149,9 @@ func installGlobal() error {
 func uninstallLocal(projectDir string) error {
 	// Remove plugin directory
 	pluginDir := PluginDir(projectDir)
-	os.RemoveAll(pluginDir)
+	if err := os.RemoveAll(pluginDir); err != nil {
+		return fmt.Errorf("removing plugin directory: %w", err)
+	}
 
 	// Remove CLAUDE.md section
 	claudeMD := filepath.Join(projectDir, ".claude", "CLAUDE.md")
@@ -164,7 +166,9 @@ func uninstallGlobal() error {
 
 	// Remove skill directories
 	for _, name := range []string{"atu-check", "atu-hint", "atu-explain"} {
-		os.RemoveAll(filepath.Join(home, ".claude", "skills", name))
+		if err := os.RemoveAll(filepath.Join(home, ".claude", "skills", name)); err != nil {
+			return fmt.Errorf("removing skill %s: %w", name, err)
+		}
 	}
 
 	// Remove CLAUDE.md section
