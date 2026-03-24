@@ -2,6 +2,7 @@ package tmux
 
 import (
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -78,5 +79,35 @@ func TestNoSocketOmitsFlag(t *testing.T) {
 		if a == "-L" {
 			t.Error("should not have -L flag when Socket is empty")
 		}
+	}
+}
+
+func TestCapturePaneANSICmdArgs(t *testing.T) {
+	m := &Manager{Session: "test-sess", Socket: "test-sock"}
+	cmd := m.capturePaneANSICmd("0")
+	got := strings.Join(cmd.Args[1:], " ")
+	want := "-L test-sock capture-pane -t test-sess:0.0 -p -e"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestResizePaneCmdArgs(t *testing.T) {
+	m := &Manager{Session: "test-sess", Socket: "test-sock"}
+	cmd := m.resizePaneCmd("0", 80, 24)
+	got := strings.Join(cmd.Args[1:], " ")
+	want := "-L test-sock resize-pane -t test-sess:0.0 -x 80 -y 24"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestSendKeysRawCmdArgs(t *testing.T) {
+	m := &Manager{Session: "test-sess", Socket: "test-sock"}
+	cmd := m.sendKeysRawCmd("1", "ls", "-l")
+	got := strings.Join(cmd.Args[1:], " ")
+	want := "-L test-sock send-keys -t test-sess:0.1 ls -l"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
