@@ -29,8 +29,8 @@ Type `/atu:check` in the agent pane to request feedback on your current work.
 | Command | Description |
 |---------|-------------|
 | `agent-tutor start [project-dir]` | Start a tutoring session (defaults to current directory) |
-| `agent-tutor stop [--socket NAME]` | Stop the current tutoring session |
-| `agent-tutor status [--socket NAME]` | Check if a tutoring session is running |
+| `agent-tutor stop [project-dir]` | Stop the tutoring session for a project (defaults to cwd) |
+| `agent-tutor status [project-dir]` | Check if a tutoring session is running for a project |
 | `agent-tutor install-plugin [--scope]` | Install Claude Code plugin and tutor instructions |
 | `agent-tutor uninstall-plugin [--scope]` | Remove Claude Code plugin and tutor instructions |
 
@@ -128,7 +128,7 @@ go test -tags integration ./internal/integration/ -v -timeout 60s
 
 ## How it works (technical)
 
-The `start` command creates an isolated tmux session (via `tmux -L agent-tutor`), splits it into two panes, auto-installs the embedded plugin if not already present, and launches the coding agent with `--mcp-config` (MCP server) and `--plugin-dir` (slash commands). Using a dedicated tmux socket prevents interference with your existing tmux sessions. The MCP server:
+The `start` command creates an isolated tmux session (via `tmux -L agent-tutor`), splits it into two panes, auto-installs the embedded plugin if not already present, and launches the coding agent with `--mcp-config` (MCP server) and `--plugin-dir` (slash commands). Each project gets a unique session name (`agent-tutor-<basename>-<hash>`), so you can run multiple tutoring sessions concurrently across different projects. Using a dedicated tmux socket prevents interference with your existing tmux sessions. The MCP server:
 
 1. **Watchers** (file, terminal, git) observe the student's activity and push events into a ring-buffer context store.
 2. **MCP tools** (`get_student_context`, `get_recent_file_changes`, `get_terminal_activity`, `get_git_activity`, `get_coaching_config`, `set_coaching_intensity`) let the agent query that store.
