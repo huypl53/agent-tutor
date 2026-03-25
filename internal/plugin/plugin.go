@@ -226,6 +226,39 @@ func installGlobal() error {
 		}
 	}
 
+	// Install teaching skills as global skills
+	skills, err := fs.ReadDir(pluginFS, "embed/skills")
+	if err == nil {
+		for _, skillEntry := range skills {
+			if !skillEntry.IsDir() {
+				continue
+			}
+			skillName := skillEntry.Name()
+			skillDestDir := filepath.Join(home, ".claude", "skills", skillName)
+			skillSrcDir := "embed/skills/" + skillName
+			if err := fs.WalkDir(pluginFS, skillSrcDir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				rel, _ := filepath.Rel(skillSrcDir, path)
+				if rel == "." {
+					return os.MkdirAll(skillDestDir, 0o755)
+				}
+				dest := filepath.Join(skillDestDir, rel)
+				if d.IsDir() {
+					return os.MkdirAll(dest, 0o755)
+				}
+				data, err := pluginFS.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				return os.WriteFile(dest, data, 0o644)
+			}); err != nil {
+				return fmt.Errorf("installing skill %s: %w", skillName, err)
+			}
+		}
+	}
+
 	// Append to ~/.claude/CLAUDE.md
 	claudeMD := filepath.Join(home, ".claude", "CLAUDE.md")
 	return appendCLAUDEmd(claudeMD)
@@ -256,7 +289,11 @@ func uninstallGlobal() error {
 	}
 
 	// Remove skill directories
-	for _, name := range []string{"atu-check", "atu-hint", "atu-explain", "atu-save"} {
+	for _, name := range []string{
+		"atu-check", "atu-hint", "atu-explain", "atu-save",
+		"atu-guided-debugging", "atu-problem-decomposition",
+		"atu-code-review-learning", "atu-dev-workflow",
+	} {
 		if err := os.RemoveAll(filepath.Join(home, ".claude", "skills", name)); err != nil {
 			return fmt.Errorf("removing skill %s: %w", name, err)
 		}

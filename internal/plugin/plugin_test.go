@@ -151,6 +151,10 @@ func TestInstallGlobal(t *testing.T) {
 		".claude/skills/atu-hint/SKILL.md",
 		".claude/skills/atu-explain/SKILL.md",
 		".claude/skills/atu-save/SKILL.md",
+		".claude/skills/atu-guided-debugging/SKILL.md",
+		".claude/skills/atu-problem-decomposition/SKILL.md",
+		".claude/skills/atu-code-review-learning/SKILL.md",
+		".claude/skills/atu-dev-workflow/SKILL.md",
 	}
 	for _, s := range skills {
 		path := filepath.Join(dir, s)
@@ -179,7 +183,11 @@ func TestUninstallGlobal(t *testing.T) {
 	}
 
 	// Skill directories removed
-	for _, name := range []string{"atu-check", "atu-hint", "atu-explain", "atu-save"} {
+	for _, name := range []string{
+		"atu-check", "atu-hint", "atu-explain", "atu-save",
+		"atu-guided-debugging", "atu-problem-decomposition",
+		"atu-code-review-learning", "atu-dev-workflow",
+	} {
 		path := filepath.Join(dir, ".claude", "skills", name)
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Errorf("skill directory %s should be removed", name)
