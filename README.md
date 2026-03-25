@@ -65,6 +65,10 @@ agent-tutor uninstall-plugin
 | `/atu:hint` | Quick nudge — one teaching point |
 | `/atu:explain` | Explain the most recent error or output |
 | `/atu:save` | Save a lesson to `./lessons/` for later review |
+| `/atu:debug` | Guided debugging session (4-phase methodology) |
+| `/atu:review` | Self-review coaching with graduated checklist |
+| `/atu:decompose` | Problem decomposition coaching |
+| `/atu:workflow` | Development workflow habit coaching |
 
 ## Lesson Export
 
