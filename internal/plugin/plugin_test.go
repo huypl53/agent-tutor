@@ -198,9 +198,13 @@ func TestRestoreColons(t *testing.T) {
 		{"commands/atu-explain.md", "commands/atu:explain.md"},
 		{"commands/atu-save.md", "commands/atu:save.md"},
 		{".claude-plugin/plugin.json", ".claude-plugin/plugin.json"},
-		{"atu-check.md", "atu:check.md"},
+		{"atu-check.md", "atu-check.md"},
 		{"other-file.md", "other-file.md"},
 		{"commands", "commands"},
+		// Skill directories must NOT get colons
+		{"skills/atu-guided-debugging", "skills/atu-guided-debugging"},
+		{"skills/atu-guided-debugging/SKILL.md", "skills/atu-guided-debugging/SKILL.md"},
+		{"hooks/large-file-detect.js", "hooks/large-file-detect.js"},
 	}
 	for _, tt := range tests {
 		got := restoreColons(tt.input)

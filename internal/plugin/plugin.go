@@ -303,7 +303,8 @@ func removeSentinelBlock(content string) string {
 func restoreColons(path string) string {
 	dir := filepath.Dir(path)
 	base := filepath.Base(path)
-	if strings.HasPrefix(base, "atu-") {
+	// Only restore colons for command files directly under commands/
+	if dir == "commands" && strings.HasPrefix(base, "atu-") && strings.HasSuffix(base, ".md") {
 		base = "atu:" + strings.TrimPrefix(base, "atu-")
 	}
 	if dir == "." {
