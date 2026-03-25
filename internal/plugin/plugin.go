@@ -481,11 +481,29 @@ func removeHookSettings(settingsPath string) error {
 
 	postToolUse = removeAgentTutorHookGroups(postToolUse)
 
-	ptu, _ := json.Marshal(postToolUse)
-	hooks["PostToolUse"] = ptu
-	hooksRaw, _ := json.Marshal(hooks)
-	raw["hooks"] = hooksRaw
+	if len(postToolUse) == 0 {
+		delete(hooks, "PostToolUse")
+	} else {
+		ptu, err := json.Marshal(postToolUse)
+		if err != nil {
+			return err
+		}
+		hooks["PostToolUse"] = ptu
+	}
 
-	out, _ := json.MarshalIndent(raw, "", "  ")
+	if len(hooks) == 0 {
+		delete(raw, "hooks")
+	} else {
+		hooksRaw, err := json.Marshal(hooks)
+		if err != nil {
+			return err
+		}
+		raw["hooks"] = hooksRaw
+	}
+
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return err
+	}
 	return os.WriteFile(settingsPath, out, 0o644)
 }
