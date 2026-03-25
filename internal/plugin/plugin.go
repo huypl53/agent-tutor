@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -21,6 +22,19 @@ const (
 
 const beginSentinel = "<!-- BEGIN AGENT-TUTOR -->"
 const endSentinel = "<!-- END AGENT-TUTOR -->"
+
+// hookGroup matches Claude Code's settings.json PostToolUse hook format.
+type hookGroup struct {
+	Matcher string    `json:"matcher"`
+	Hooks   []hookCmd `json:"hooks"`
+}
+
+type hookCmd struct {
+	Type    string `json:"type"`
+	Command string `json:"command"`
+}
+
+const agentTutorHookMarker = ".agent-tutor/plugin/hooks/"
 
 const claudeMDSection = `<!-- BEGIN AGENT-TUTOR -->
 # Agent Tutor
@@ -127,6 +141,13 @@ func installLocal(projectDir string) error {
 		return fmt.Errorf("extracting plugin files: %w", err)
 	}
 
+	// Merge hooks into .claude/settings.json (project-level, not user-level)
+	settingsPath := filepath.Join(projectDir, ".claude", "settings.json")
+	hooksDir := filepath.Join(destDir, "hooks")
+	if err := mergeHookSettings(settingsPath, hooksDir); err != nil {
+		return fmt.Errorf("updating settings.json: %w", err)
+	}
+
 	// Append to .claude/CLAUDE.md
 	claudeMD := filepath.Join(projectDir, ".claude", "CLAUDE.md")
 	if err := appendCLAUDEmd(claudeMD); err != nil {
@@ -181,6 +202,12 @@ func uninstallLocal(projectDir string) error {
 	pluginDir := PluginDir(projectDir)
 	if err := os.RemoveAll(pluginDir); err != nil {
 		return fmt.Errorf("removing plugin directory: %w", err)
+	}
+
+	// Remove hook entries from .claude/settings.json
+	settingsPath := filepath.Join(projectDir, ".claude", "settings.json")
+	if err := removeHookSettings(settingsPath); err != nil {
+		return fmt.Errorf("removing hook settings: %w", err)
 	}
 
 	// Remove CLAUDE.md section
@@ -311,4 +338,120 @@ func restoreColons(path string) string {
 		return base
 	}
 	return filepath.Join(dir, base)
+}
+
+// mergeHookSettings merges agent-tutor hook entries into .claude/settings.json.
+// Preserves all existing settings. Idempotent.
+func mergeHookSettings(settingsPath, hooksAbsDir string) error {
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		return err
+	}
+
+	// Read existing settings as raw JSON map to preserve unknown fields.
+	raw := make(map[string]json.RawMessage)
+	if data, err := os.ReadFile(settingsPath); err == nil {
+		_ = json.Unmarshal(data, &raw)
+	}
+
+	// Parse existing hooks section.
+	hooks := make(map[string]json.RawMessage)
+	if h, ok := raw["hooks"]; ok {
+		_ = json.Unmarshal(h, &hooks)
+	}
+
+	// Parse existing PostToolUse entries.
+	var postToolUse []hookGroup
+	if p, ok := hooks["PostToolUse"]; ok {
+		_ = json.Unmarshal(p, &postToolUse)
+	}
+
+	// Remove any existing agent-tutor entries (idempotency).
+	postToolUse = removeAgentTutorHookGroups(postToolUse)
+
+	// Add our two hooks.
+	postToolUse = append(postToolUse,
+		hookGroup{
+			Matcher: "Write|Edit",
+			Hooks: []hookCmd{{
+				Type:    "command",
+				Command: "node " + filepath.Join(hooksAbsDir, "large-file-detect.js"),
+			}},
+		},
+		hookGroup{
+			Matcher: "Bash",
+			Hooks: []hookCmd{{
+				Type:    "command",
+				Command: "node " + filepath.Join(hooksAbsDir, "error-pattern-detect.js"),
+			}},
+		},
+	)
+
+	// Marshal back, preserving other fields.
+	ptu, err := json.Marshal(postToolUse)
+	if err != nil {
+		return err
+	}
+	hooks["PostToolUse"] = ptu
+	hooksRaw, err := json.Marshal(hooks)
+	if err != nil {
+		return err
+	}
+	raw["hooks"] = hooksRaw
+
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(settingsPath, out, 0o644)
+}
+
+// removeAgentTutorHookGroups filters out any hook groups that reference agent-tutor hooks.
+func removeAgentTutorHookGroups(groups []hookGroup) []hookGroup {
+	var result []hookGroup
+	for _, g := range groups {
+		isAgentTutor := false
+		for _, h := range g.Hooks {
+			if strings.Contains(h.Command, agentTutorHookMarker) {
+				isAgentTutor = true
+				break
+			}
+		}
+		if !isAgentTutor {
+			result = append(result, g)
+		}
+	}
+	return result
+}
+
+// removeHookSettings removes agent-tutor hook entries from .claude/settings.json.
+func removeHookSettings(settingsPath string) error {
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return nil // File doesn't exist — nothing to do
+	}
+
+	raw := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil // Unparseable — leave as-is
+	}
+
+	hooks := make(map[string]json.RawMessage)
+	if h, ok := raw["hooks"]; ok {
+		_ = json.Unmarshal(h, &hooks)
+	}
+
+	var postToolUse []hookGroup
+	if p, ok := hooks["PostToolUse"]; ok {
+		_ = json.Unmarshal(p, &postToolUse)
+	}
+
+	postToolUse = removeAgentTutorHookGroups(postToolUse)
+
+	ptu, _ := json.Marshal(postToolUse)
+	hooks["PostToolUse"] = ptu
+	hooksRaw, _ := json.Marshal(hooks)
+	raw["hooks"] = hooksRaw
+
+	out, _ := json.MarshalIndent(raw, "", "  ")
+	return os.WriteFile(settingsPath, out, 0o644)
 }

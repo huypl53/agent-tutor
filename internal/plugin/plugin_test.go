@@ -258,3 +258,73 @@ func TestInstallLocalIncludesHooks(t *testing.T) {
 		}
 	}
 }
+
+func TestInstallLocalMergesHookSettings(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+
+	settingsPath := filepath.Join(dir, ".claude", "settings.json")
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("settings.json not created: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "large-file-detect.js") {
+		t.Error("missing large-file-detect.js hook in settings.json")
+	}
+	if !strings.Contains(content, "error-pattern-detect.js") {
+		t.Error("missing error-pattern-detect.js hook in settings.json")
+	}
+}
+
+func TestInstallLocalHookSettingsIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	Install(dir, ScopeLocal)
+	Install(dir, ScopeLocal)
+
+	data, _ := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	count := strings.Count(string(data), "large-file-detect.js")
+	if count != 1 {
+		t.Errorf("expected 1 hook entry, got %d", count)
+	}
+}
+
+func TestInstallLocalPreservesExistingSettings(t *testing.T) {
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	os.MkdirAll(claudeDir, 0o755)
+	existing := `{"permissions":{"allow":["Bash"]}}`
+	os.WriteFile(filepath.Join(claudeDir, "settings.json"), []byte(existing), 0o644)
+
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(claudeDir, "settings.json"))
+	content := string(data)
+	if !strings.Contains(content, `"allow"`) {
+		t.Error("existing permissions were lost")
+	}
+	if !strings.Contains(content, "large-file-detect.js") {
+		t.Error("hook entries not added")
+	}
+}
+
+func TestUninstallLocalRemovesHookSettings(t *testing.T) {
+	dir := t.TempDir()
+	Install(dir, ScopeLocal)
+	if err := Uninstall(dir, ScopeLocal); err != nil {
+		t.Fatalf("Uninstall failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	if err != nil {
+		return // settings.json removed entirely — acceptable
+	}
+	content := string(data)
+	if strings.Contains(content, "large-file-detect.js") {
+		t.Error("hook entry should be removed on uninstall")
+	}
+}
