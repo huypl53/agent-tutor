@@ -57,17 +57,42 @@ Cobra-based CLI with seven commands:
 
 ### Plugin (`internal/plugin`)
 
-Embeds Claude Code plugin files via `//go:embed all:embed` (the `all:` prefix is needed to include the `.claude-plugin` hidden directory). The `Install()` function extracts plugin files and appends a tutor instruction section to `.claude/CLAUDE.md` with `<!-- BEGIN AGENT-TUTOR -->` / `<!-- END AGENT-TUTOR -->` sentinel comments for clean uninstall.
+Embeds Claude Code plugin files via `//go:embed all:embed` (the `all:` prefix is needed to include the `.claude-plugin` hidden directory). The `Install()` function extracts plugin files, merges hook settings into `.claude/settings.json`, and appends a tutor instruction section to `.claude/CLAUDE.md` with `<!-- BEGIN AGENT-TUTOR -->` / `<!-- END AGENT-TUTOR -->` sentinel comments for clean uninstall.
 
 Two scopes:
-- **local**: Plugin in `.agent-tutor/plugin/`, instructions in `.claude/CLAUDE.md`
+- **local**: Plugin in `.agent-tutor/plugin/`, instructions in `.claude/CLAUDE.md`, hooks in `.claude/settings.json`
 - **global**: Skills in `~/.claude/skills/atu-*/`, instructions in `~/.claude/CLAUDE.md`
 
 The `start` command auto-installs locally if the plugin is not present, and passes `--plugin-dir` to the claude command.
 
-Note: Embedded command files use dashes (`atu-check.md`) because Go's embed package forbids colons in filenames. A `restoreColons()` helper maps them back to colons (`atu:check.md`) during local extraction for Claude Code command registration.
+#### Plugin embed structure
 
-Embedded commands: `atu-check.md`, `atu-hint.md`, `atu-explain.md`, `atu-save.md`. The `/atu:save` command instructs Claude to write structured lesson files to `./lessons/`.
+The `embed/` directory is organized into three subdirectories:
+
+- **`embed/commands/`** — Slash command markdown files (e.g., `atu-check.md`, `atu-debug.md`). These are thin dispatchers — the new teaching commands (`atu-debug`, `atu-review`, `atu-decompose`, `atu-workflow`) invoke the corresponding skill via `SKILL.md` rather than containing full methodology inline.
+- **`embed/skills/`** — Teaching skill directories, each with a `SKILL.md` and a `references/` subdirectory containing detailed methodology. Four skills: `atu-guided-debugging`, `atu-problem-decomposition`, `atu-code-review-learning`, `atu-dev-workflow`.
+- **`embed/hooks/`** — JavaScript hook scripts (`large-file-detect.js`, `error-pattern-detect.js`) for Claude Code `PostToolUse` advisory hooks.
+
+#### restoreColons
+
+Embedded command files use dashes (`atu-check.md`) because Go's embed package forbids colons in filenames. The `restoreColons()` helper maps them back to colons (`atu:check.md`) during local extraction for Claude Code command registration. This transformation only applies to files directly under the `commands/` directory — skill and hook filenames are left unchanged since they don't need the colon convention.
+
+#### Hook settings merge
+
+`mergeHookSettings(settingsPath, hooksDir)` and `removeHookSettings(settingsPath)` manage `PostToolUse` entries in `.claude/settings.json`:
+
+- Settings are parsed as `map[string]json.RawMessage` at every level to preserve unknown fields (user-defined settings, other hooks, etc.) through round-trip serialization.
+- Two hooks are registered: `Write|Edit` matcher for `large-file-detect.js` (suggests `/atu:decompose` when a file exceeds 200 lines) and `Bash` matcher for `error-pattern-detect.js` (suggests `/atu:debug` or `/atu:explain` on error patterns).
+- Idempotent via marker-based identification: `removeAgentTutorHookGroups` filters out any hook group whose command contains the `.agent-tutor/plugin/hooks/` path marker before adding fresh entries.
+- On uninstall, empty `PostToolUse` arrays and empty `hooks` objects are deleted rather than left as empty values.
+
+#### Global install
+
+`installGlobal()` dynamically walks `embed/commands/` to create command-based skills (`~/.claude/skills/atu-check/SKILL.md`, etc.) and `embed/skills/` to extract teaching skill directories (preserving the `references/` subdirectory tree). `uninstallGlobal()` uses a hardcoded list of all 12 skill names (8 command-based + 4 teaching-skill directories) for cleanup, since the embed FS is not available at uninstall time in all contexts.
+
+#### CLAUDE.md injection
+
+The `claudeMDSection` constant includes: commands table (all 8 commands), teaching skills mapping (command-to-SKILL.md paths), MCP tools reference, pedagogical principles (ask-before-tell, one-point-per-interaction, praise-first), hook awareness (how to handle `additionalContext` from PostToolUse hooks), and lesson auto-save instructions.
 
 ### Config (`internal/config`)
 

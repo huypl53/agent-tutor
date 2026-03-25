@@ -20,6 +20,10 @@ func TestInstallLocal(t *testing.T) {
 		".agent-tutor/plugin/commands/atu:hint.md",
 		".agent-tutor/plugin/commands/atu:explain.md",
 		".agent-tutor/plugin/commands/atu:save.md",
+		".agent-tutor/plugin/commands/atu:debug.md",
+		".agent-tutor/plugin/commands/atu:review.md",
+		".agent-tutor/plugin/commands/atu:decompose.md",
+		".agent-tutor/plugin/commands/atu:workflow.md",
 	}
 	for _, f := range files {
 		path := filepath.Join(dir, f)
@@ -147,6 +151,10 @@ func TestInstallGlobal(t *testing.T) {
 		".claude/skills/atu-hint/SKILL.md",
 		".claude/skills/atu-explain/SKILL.md",
 		".claude/skills/atu-save/SKILL.md",
+		".claude/skills/atu-guided-debugging/SKILL.md",
+		".claude/skills/atu-problem-decomposition/SKILL.md",
+		".claude/skills/atu-code-review-learning/SKILL.md",
+		".claude/skills/atu-dev-workflow/SKILL.md",
 	}
 	for _, s := range skills {
 		path := filepath.Join(dir, s)
@@ -175,7 +183,12 @@ func TestUninstallGlobal(t *testing.T) {
 	}
 
 	// Skill directories removed
-	for _, name := range []string{"atu-check", "atu-hint", "atu-explain", "atu-save"} {
+	for _, name := range []string{
+		"atu-check", "atu-hint", "atu-explain", "atu-save",
+		"atu-debug", "atu-review", "atu-decompose", "atu-workflow",
+		"atu-guided-debugging", "atu-problem-decomposition",
+		"atu-code-review-learning", "atu-dev-workflow",
+	} {
 		path := filepath.Join(dir, ".claude", "skills", name)
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Errorf("skill directory %s should be removed", name)
@@ -198,14 +211,157 @@ func TestRestoreColons(t *testing.T) {
 		{"commands/atu-explain.md", "commands/atu:explain.md"},
 		{"commands/atu-save.md", "commands/atu:save.md"},
 		{".claude-plugin/plugin.json", ".claude-plugin/plugin.json"},
-		{"atu-check.md", "atu:check.md"},
+		{"atu-check.md", "atu-check.md"},
 		{"other-file.md", "other-file.md"},
 		{"commands", "commands"},
+		// Skill directories must NOT get colons
+		{"skills/atu-guided-debugging", "skills/atu-guided-debugging"},
+		{"skills/atu-guided-debugging/SKILL.md", "skills/atu-guided-debugging/SKILL.md"},
+		{"hooks/large-file-detect.js", "hooks/large-file-detect.js"},
 	}
 	for _, tt := range tests {
 		got := restoreColons(tt.input)
 		if got != tt.want {
 			t.Errorf("restoreColons(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestInstallLocalIncludesSkills(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+	skills := []string{
+		".agent-tutor/plugin/skills/atu-guided-debugging/SKILL.md",
+		".agent-tutor/plugin/skills/atu-guided-debugging/references/phases.md",
+		".agent-tutor/plugin/skills/atu-guided-debugging/references/examples.md",
+		".agent-tutor/plugin/skills/atu-problem-decomposition/SKILL.md",
+		".agent-tutor/plugin/skills/atu-problem-decomposition/references/techniques.md",
+		".agent-tutor/plugin/skills/atu-code-review-learning/SKILL.md",
+		".agent-tutor/plugin/skills/atu-code-review-learning/references/checklist.md",
+		".agent-tutor/plugin/skills/atu-dev-workflow/SKILL.md",
+		".agent-tutor/plugin/skills/atu-dev-workflow/references/rules.md",
+	}
+	for _, s := range skills {
+		path := filepath.Join(dir, s)
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("expected %s to exist: %v", s, err)
+		}
+	}
+}
+
+func TestInstallLocalIncludesHooks(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+	hooks := []string{
+		".agent-tutor/plugin/hooks/large-file-detect.js",
+		".agent-tutor/plugin/hooks/error-pattern-detect.js",
+	}
+	for _, h := range hooks {
+		path := filepath.Join(dir, h)
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("expected %s to exist: %v", h, err)
+		}
+	}
+}
+
+func TestInstallLocalMergesHookSettings(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+
+	settingsPath := filepath.Join(dir, ".claude", "settings.json")
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("settings.json not created: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "large-file-detect.js") {
+		t.Error("missing large-file-detect.js hook in settings.json")
+	}
+	if !strings.Contains(content, "error-pattern-detect.js") {
+		t.Error("missing error-pattern-detect.js hook in settings.json")
+	}
+}
+
+func TestInstallLocalHookSettingsIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	Install(dir, ScopeLocal)
+	Install(dir, ScopeLocal)
+
+	data, _ := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	count := strings.Count(string(data), "large-file-detect.js")
+	if count != 1 {
+		t.Errorf("expected 1 hook entry, got %d", count)
+	}
+}
+
+func TestInstallLocalPreservesExistingSettings(t *testing.T) {
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	os.MkdirAll(claudeDir, 0o755)
+	existing := `{"permissions":{"allow":["Bash"]}}`
+	os.WriteFile(filepath.Join(claudeDir, "settings.json"), []byte(existing), 0o644)
+
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(claudeDir, "settings.json"))
+	content := string(data)
+	if !strings.Contains(content, `"allow"`) {
+		t.Error("existing permissions were lost")
+	}
+	if !strings.Contains(content, "large-file-detect.js") {
+		t.Error("hook entries not added")
+	}
+}
+
+func TestUninstallLocalRemovesHookSettings(t *testing.T) {
+	dir := t.TempDir()
+	Install(dir, ScopeLocal)
+	if err := Uninstall(dir, ScopeLocal); err != nil {
+		t.Fatalf("Uninstall failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	if err != nil {
+		return // settings.json removed entirely — acceptable
+	}
+	content := string(data)
+	if strings.Contains(content, "large-file-detect.js") {
+		t.Error("hook entry should be removed on uninstall")
+	}
+}
+
+func TestInstallLocalCLAUDEmdHasTeachingContent(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, ".claude", "CLAUDE.md"))
+	content := string(data)
+
+	checks := []string{
+		"atu-guided-debugging",
+		"atu-problem-decomposition",
+		"atu-code-review-learning",
+		"atu-dev-workflow",
+		"Ask questions before giving answers",
+		"One teaching point per interaction",
+		"additionalContext",
+		"/atu:debug",
+		"/atu:review",
+		"/atu:decompose",
+		"/atu:workflow",
+	}
+	for _, want := range checks {
+		if !strings.Contains(content, want) {
+			t.Errorf("CLAUDE.md missing expected content: %q", want)
 		}
 	}
 }

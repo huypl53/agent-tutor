@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -22,6 +23,19 @@ const (
 const beginSentinel = "<!-- BEGIN AGENT-TUTOR -->"
 const endSentinel = "<!-- END AGENT-TUTOR -->"
 
+// hookGroup matches Claude Code's settings.json PostToolUse hook format.
+type hookGroup struct {
+	Matcher string    `json:"matcher"`
+	Hooks   []hookCmd `json:"hooks"`
+}
+
+type hookCmd struct {
+	Type    string `json:"type"`
+	Command string `json:"command"`
+}
+
+const agentTutorHookMarker = ".agent-tutor/plugin/hooks/"
+
 const claudeMDSection = `<!-- BEGIN AGENT-TUTOR -->
 # Agent Tutor
 
@@ -39,19 +53,53 @@ You have MCP tools to observe their work — use them to provide relevant coachi
 | ` + "`get_coaching_config`" + ` | Current intensity and level | Check before deciding how proactive to be |
 | ` + "`set_coaching_intensity`" + ` | Change coaching mode | When the student asks to adjust coaching |
 
+## Commands Available
+
+| Command | Purpose |
+|---------|---------|
+| ` + "`/atu:check`" + ` | Comprehensive review of recent activity |
+| ` + "`/atu:hint`" + ` | Quick one-point nudge |
+| ` + "`/atu:explain`" + ` | Explain the most recent error |
+| ` + "`/atu:save`" + ` | Save current session as a lesson |
+| ` + "`/atu:debug`" + ` | Guided debugging session (4-phase methodology) |
+| ` + "`/atu:review`" + ` | Self-review coaching (graduated checklist) |
+| ` + "`/atu:decompose`" + ` | Problem decomposition coaching |
+| ` + "`/atu:workflow`" + ` | Development workflow habit coaching |
+
+## Teaching Skills
+
+When these commands are invoked, load the methodology by reading the corresponding skill file:
+
+- ` + "`/atu:debug`" + ` → read ` + "`.agent-tutor/plugin/skills/atu-guided-debugging/SKILL.md`" + `
+- ` + "`/atu:decompose`" + ` → read ` + "`.agent-tutor/plugin/skills/atu-problem-decomposition/SKILL.md`" + `
+- ` + "`/atu:review`" + ` → read ` + "`.agent-tutor/plugin/skills/atu-code-review-learning/SKILL.md`" + `
+- ` + "`/atu:workflow`" + ` → read ` + "`.agent-tutor/plugin/skills/atu-dev-workflow/SKILL.md`" + `
+
+For deeper reference material, read the ` + "`references/`" + ` subdirectory of each skill.
+
 ## Coaching Behavior
 
 - **proactive**: After messages, check ` + "`get_student_context`" + ` for teachable moments. On ` + "`tutor_nudge`" + `, offer coaching.
 - **on-demand**: Only use tutor tools when the student asks or uses ` + "`/atu:check`" + `.
 - **silent**: Never coach unless explicitly asked.
 
-## Teaching Style
+## Pedagogical Principles
 
-- Explain the "why" not just the "what"
-- One teaching point per interaction, not five
-- For beginners: explain concepts, suggest resources
-- For experienced devs: focus on idioms, best practices
-- If the student is doing well, say nothing
+- **Ask questions before giving answers.** "What do you think this error means?" before explaining.
+- **One teaching point per interaction.** Never overwhelm with five things at once.
+- **Praise specific good behavior first.** Acknowledge what worked before suggesting improvements.
+- **Match depth to student level.** Vocabulary and checklist depth from ` + "`get_coaching_config`" + `.
+- **Never fix code silently in proactive mode.** Always explain what and why.
+- **If the student is doing well, say nothing.** Silence is valid coaching.
+
+## Hook Awareness
+
+The project has advisory hooks that inject ` + "`additionalContext`" + ` when:
+- A file exceeds 200 lines after a Write/Edit (suggests ` + "`/atu:decompose`" + `)
+- An error pattern appears in terminal output after a Bash command (suggests ` + "`/atu:debug`" + ` or ` + "`/atu:explain`" + `)
+
+When ` + "`additionalContext`" + ` mentions a teachable moment, incorporate it naturally into your next response.
+Do not parrot the hook text verbatim — use it as a trigger for genuine teaching.
 
 ## Lesson Auto-Save
 
@@ -127,6 +175,13 @@ func installLocal(projectDir string) error {
 		return fmt.Errorf("extracting plugin files: %w", err)
 	}
 
+	// Merge hooks into .claude/settings.json (project-level, not user-level)
+	settingsPath := filepath.Join(projectDir, ".claude", "settings.json")
+	hooksDir := filepath.Join(destDir, "hooks")
+	if err := mergeHookSettings(settingsPath, hooksDir); err != nil {
+		return fmt.Errorf("updating settings.json: %w", err)
+	}
+
 	// Append to .claude/CLAUDE.md
 	claudeMD := filepath.Join(projectDir, ".claude", "CLAUDE.md")
 	if err := appendCLAUDEmd(claudeMD); err != nil {
@@ -171,6 +226,39 @@ func installGlobal() error {
 		}
 	}
 
+	// Install teaching skills as global skills
+	skills, err := fs.ReadDir(pluginFS, "embed/skills")
+	if err == nil {
+		for _, skillEntry := range skills {
+			if !skillEntry.IsDir() {
+				continue
+			}
+			skillName := skillEntry.Name()
+			skillDestDir := filepath.Join(home, ".claude", "skills", skillName)
+			skillSrcDir := "embed/skills/" + skillName
+			if err := fs.WalkDir(pluginFS, skillSrcDir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				rel, _ := filepath.Rel(skillSrcDir, path)
+				if rel == "." {
+					return os.MkdirAll(skillDestDir, 0o755)
+				}
+				dest := filepath.Join(skillDestDir, rel)
+				if d.IsDir() {
+					return os.MkdirAll(dest, 0o755)
+				}
+				data, err := pluginFS.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				return os.WriteFile(dest, data, 0o644)
+			}); err != nil {
+				return fmt.Errorf("installing skill %s: %w", skillName, err)
+			}
+		}
+	}
+
 	// Append to ~/.claude/CLAUDE.md
 	claudeMD := filepath.Join(home, ".claude", "CLAUDE.md")
 	return appendCLAUDEmd(claudeMD)
@@ -181,6 +269,12 @@ func uninstallLocal(projectDir string) error {
 	pluginDir := PluginDir(projectDir)
 	if err := os.RemoveAll(pluginDir); err != nil {
 		return fmt.Errorf("removing plugin directory: %w", err)
+	}
+
+	// Remove hook entries from .claude/settings.json
+	settingsPath := filepath.Join(projectDir, ".claude", "settings.json")
+	if err := removeHookSettings(settingsPath); err != nil {
+		return fmt.Errorf("removing hook settings: %w", err)
 	}
 
 	// Remove CLAUDE.md section
@@ -195,7 +289,12 @@ func uninstallGlobal() error {
 	}
 
 	// Remove skill directories
-	for _, name := range []string{"atu-check", "atu-hint", "atu-explain", "atu-save"} {
+	for _, name := range []string{
+		"atu-check", "atu-hint", "atu-explain", "atu-save",
+		"atu-debug", "atu-review", "atu-decompose", "atu-workflow",
+		"atu-guided-debugging", "atu-problem-decomposition",
+		"atu-code-review-learning", "atu-dev-workflow",
+	} {
 		if err := os.RemoveAll(filepath.Join(home, ".claude", "skills", name)); err != nil {
 			return fmt.Errorf("removing skill %s: %w", name, err)
 		}
@@ -303,11 +402,146 @@ func removeSentinelBlock(content string) string {
 func restoreColons(path string) string {
 	dir := filepath.Dir(path)
 	base := filepath.Base(path)
-	if strings.HasPrefix(base, "atu-") {
+	// Only restore colons for command files directly under commands/
+	if dir == "commands" && strings.HasPrefix(base, "atu-") && strings.HasSuffix(base, ".md") {
 		base = "atu:" + strings.TrimPrefix(base, "atu-")
 	}
 	if dir == "." {
 		return base
 	}
 	return filepath.Join(dir, base)
+}
+
+// mergeHookSettings merges agent-tutor hook entries into .claude/settings.json.
+// Preserves all existing settings. Idempotent.
+func mergeHookSettings(settingsPath, hooksAbsDir string) error {
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		return err
+	}
+
+	// Read existing settings as raw JSON map to preserve unknown fields.
+	raw := make(map[string]json.RawMessage)
+	if data, err := os.ReadFile(settingsPath); err == nil {
+		_ = json.Unmarshal(data, &raw)
+	}
+
+	// Parse existing hooks section.
+	hooks := make(map[string]json.RawMessage)
+	if h, ok := raw["hooks"]; ok {
+		_ = json.Unmarshal(h, &hooks)
+	}
+
+	// Parse existing PostToolUse entries.
+	var postToolUse []hookGroup
+	if p, ok := hooks["PostToolUse"]; ok {
+		_ = json.Unmarshal(p, &postToolUse)
+	}
+
+	// Remove any existing agent-tutor entries (idempotency).
+	postToolUse = removeAgentTutorHookGroups(postToolUse)
+
+	// Add our two hooks.
+	postToolUse = append(postToolUse,
+		hookGroup{
+			Matcher: "Write|Edit",
+			Hooks: []hookCmd{{
+				Type:    "command",
+				Command: "node " + filepath.Join(hooksAbsDir, "large-file-detect.js"),
+			}},
+		},
+		hookGroup{
+			Matcher: "Bash",
+			Hooks: []hookCmd{{
+				Type:    "command",
+				Command: "node " + filepath.Join(hooksAbsDir, "error-pattern-detect.js"),
+			}},
+		},
+	)
+
+	// Marshal back, preserving other fields.
+	ptu, err := json.Marshal(postToolUse)
+	if err != nil {
+		return err
+	}
+	hooks["PostToolUse"] = ptu
+	hooksRaw, err := json.Marshal(hooks)
+	if err != nil {
+		return err
+	}
+	raw["hooks"] = hooksRaw
+
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(settingsPath, out, 0o644)
+}
+
+// removeAgentTutorHookGroups filters out any hook groups that reference agent-tutor hooks.
+func removeAgentTutorHookGroups(groups []hookGroup) []hookGroup {
+	var result []hookGroup
+	for _, g := range groups {
+		isAgentTutor := false
+		for _, h := range g.Hooks {
+			if strings.Contains(h.Command, agentTutorHookMarker) {
+				isAgentTutor = true
+				break
+			}
+		}
+		if !isAgentTutor {
+			result = append(result, g)
+		}
+	}
+	return result
+}
+
+// removeHookSettings removes agent-tutor hook entries from .claude/settings.json.
+func removeHookSettings(settingsPath string) error {
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return nil // File doesn't exist — nothing to do
+	}
+
+	raw := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil // Unparseable — leave as-is
+	}
+
+	hooks := make(map[string]json.RawMessage)
+	if h, ok := raw["hooks"]; ok {
+		_ = json.Unmarshal(h, &hooks)
+	}
+
+	var postToolUse []hookGroup
+	if p, ok := hooks["PostToolUse"]; ok {
+		_ = json.Unmarshal(p, &postToolUse)
+	}
+
+	postToolUse = removeAgentTutorHookGroups(postToolUse)
+
+	if len(postToolUse) == 0 {
+		delete(hooks, "PostToolUse")
+	} else {
+		ptu, err := json.Marshal(postToolUse)
+		if err != nil {
+			return err
+		}
+		hooks["PostToolUse"] = ptu
+	}
+
+	if len(hooks) == 0 {
+		delete(raw, "hooks")
+	} else {
+		hooksRaw, err := json.Marshal(hooks)
+		if err != nil {
+			return err
+		}
+		raw["hooks"] = hooksRaw
+	}
+
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(settingsPath, out, 0o644)
 }
