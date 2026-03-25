@@ -328,3 +328,31 @@ func TestUninstallLocalRemovesHookSettings(t *testing.T) {
 		t.Error("hook entry should be removed on uninstall")
 	}
 }
+
+func TestInstallLocalCLAUDEmdHasTeachingContent(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, ".claude", "CLAUDE.md"))
+	content := string(data)
+
+	checks := []string{
+		"atu-guided-debugging",
+		"atu-problem-decomposition",
+		"atu-code-review-learning",
+		"atu-dev-workflow",
+		"Ask questions before giving answers",
+		"One teaching point per interaction",
+		"additionalContext",
+		"/atu:debug",
+		"/atu:review",
+		"/atu:decompose",
+		"/atu:workflow",
+	}
+	for _, want := range checks {
+		if !strings.Contains(content, want) {
+			t.Errorf("CLAUDE.md missing expected content: %q", want)
+		}
+	}
+}
