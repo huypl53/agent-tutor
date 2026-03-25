@@ -20,6 +20,10 @@ func TestInstallLocal(t *testing.T) {
 		".agent-tutor/plugin/commands/atu:hint.md",
 		".agent-tutor/plugin/commands/atu:explain.md",
 		".agent-tutor/plugin/commands/atu:save.md",
+		".agent-tutor/plugin/commands/atu:debug.md",
+		".agent-tutor/plugin/commands/atu:review.md",
+		".agent-tutor/plugin/commands/atu:decompose.md",
+		".agent-tutor/plugin/commands/atu:workflow.md",
 	}
 	for _, f := range files {
 		path := filepath.Join(dir, f)
