@@ -241,3 +241,20 @@ func TestInstallLocalIncludesSkills(t *testing.T) {
 		}
 	}
 }
+
+func TestInstallLocalIncludesHooks(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+	hooks := []string{
+		".agent-tutor/plugin/hooks/large-file-detect.js",
+		".agent-tutor/plugin/hooks/error-pattern-detect.js",
+	}
+	for _, h := range hooks {
+		path := filepath.Join(dir, h)
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("expected %s to exist: %v", h, err)
+		}
+	}
+}
