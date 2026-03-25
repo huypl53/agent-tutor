@@ -185,6 +185,7 @@ func TestUninstallGlobal(t *testing.T) {
 	// Skill directories removed
 	for _, name := range []string{
 		"atu-check", "atu-hint", "atu-explain", "atu-save",
+		"atu-debug", "atu-review", "atu-decompose", "atu-workflow",
 		"atu-guided-debugging", "atu-problem-decomposition",
 		"atu-code-review-learning", "atu-dev-workflow",
 	} {
