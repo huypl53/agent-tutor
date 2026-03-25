@@ -2,9 +2,15 @@
 
 A Go CLI that turns coding agents (Claude Code, Codex) into programming tutors by observing your work via tmux and MCP.
 
+![TUI Mode — dual-pane view with User Terminal and Claude Code](docs/images/tui-screenshot.png)
+
 ## How it works
 
 Agent Tutor creates a tmux session with two panes: your terminal on the left, a coding agent on the right. An MCP server runs in the background, feeding the agent observation tools (file changes, terminal output, git activity). A system prompt injection makes the agent coach you instead of just writing code for you.
+
+You can interact with the session in two ways:
+- **TUI mode** — a built-in terminal UI that renders both panes in one window (shown above)
+- **tmux attach** — attach directly to the tmux session for a native terminal experience
 
 ## Installation
 

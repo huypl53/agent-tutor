@@ -11,7 +11,7 @@ func TestParseKeyBinding(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"ctrl+space", "ctrl+ "},
+		{"ctrl+space", "ctrl+@"},
 		{"ctrl+q", "ctrl+q"},
 		{"ctrl+a", "ctrl+a"},
 		{"f1", "f1"},

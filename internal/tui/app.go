@@ -21,6 +21,8 @@ type tickMsg struct{}
 type capturedMsg struct {
 	contents [2]string
 	errors   [2]error
+	cursorX  int
+	cursorY  int
 }
 
 // Model is the top-level bubbletea model for the dual-pane TUI.
@@ -84,6 +86,11 @@ func captureAllCmd(panes [2]*PaneModel) tea.Cmd {
 			msg.contents[i] = content
 			msg.errors[i] = err
 		}
+		// Only fetch cursor for pane 0 (user terminal)
+		if x, y, err := panes[0].tm.CursorPosition(panes[0].targetID); err == nil {
+			msg.cursorX = x
+			msg.cursorY = y
+		}
 		return msg
 	}
 }
@@ -142,6 +149,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if msg.contents[i] != p.content {
 					p.lastActive = time.Now()
 					p.content = msg.contents[i]
+				}
+				if i == 0 {
+					p.cursorX = msg.cursorX
+					p.cursorY = msg.cursorY
 				}
 			}
 		}
@@ -230,32 +241,71 @@ func (m Model) paneDimensions(idx, availHeight int) (width, height int) {
 func (m Model) renderPane(idx int, availHeight int) string {
 	pane := m.panes[idx]
 	style := m.styles.UnfocusedBorder
-	if idx == m.activePane {
+	isActive := idx == m.activePane
+	if isActive {
 		style = m.styles.FocusedBorder
 	}
 
 	paneWidth, paneHeight := m.paneDimensions(idx, availHeight)
 
-	content := m.fitContent(pane.Content(), paneWidth, paneHeight)
-	title := fmt.Sprintf(" %s ", pane.Label())
+	content := m.fitContent(pane.Content(), paneWidth, paneHeight, idx == 0, pane.cursorX, pane.cursorY)
+	indicator := " "
+	if isActive {
+		indicator = "▸"
+	}
+	title := fmt.Sprintf(" %s%s ", indicator, pane.Label())
 	return style.Width(paneWidth).Height(paneHeight).Render(title + "\n" + content)
 }
 
-func (m Model) fitContent(content string, width, height int) string {
+func (m Model) fitContent(content string, width, height int, showCursor bool, cursorX, cursorY int) string {
 	lines := strings.Split(content, "\n")
 	visible := height - 1
 	if visible < 0 {
 		visible = 0
 	}
 	if len(lines) > visible {
-		lines = lines[len(lines)-visible:]
+		if showCursor {
+			// Scroll to keep cursor visible (user terminal pane)
+			start := cursorY - visible + 1
+			if start < 0 {
+				start = 0
+			}
+			if start+visible > len(lines) {
+				start = len(lines) - visible
+			}
+			lines = lines[start : start+visible]
+			// Adjust cursorY relative to the visible window
+			cursorY = cursorY - start
+		} else {
+			// No cursor info — show last N lines (Claude pane)
+			lines = lines[len(lines)-visible:]
+		}
 	}
 	for i, line := range lines {
 		if ansi.StringWidth(line) > width {
 			lines[i] = ansi.Truncate(line, width, "")
 		}
 	}
+	if showCursor && cursorY >= 0 && cursorY < len(lines) {
+		lines[cursorY] = injectCursor(lines[cursorY], cursorX)
+	}
 	return strings.Join(lines, "\n")
+}
+
+// injectCursor highlights the character at column x with reverse video,
+// preserving the original character (like a real terminal block cursor).
+func injectCursor(line string, x int) string {
+	lineWidth := ansi.StringWidth(line)
+	if x >= lineWidth {
+		return line + strings.Repeat(" ", x-lineWidth) + "\033[7m \033[0m"
+	}
+	prefix := ansi.Truncate(line, x, "")
+	ch := ansi.Strip(ansi.Cut(line, x, x+1))
+	if ch == "" {
+		ch = " "
+	}
+	suffix := ansi.Cut(line, x+1, lineWidth)
+	return prefix + "\033[7m" + ch + "\033[0m" + suffix
 }
 
 func (m Model) renderStatusBar() string {

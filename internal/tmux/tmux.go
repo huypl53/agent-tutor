@@ -115,6 +115,18 @@ func (m *Manager) SendKeysRaw(paneID string, keys ...string) error {
 	return m.sendKeysRawCmd(paneID, keys...).Run()
 }
 
+// CursorPosition returns the cursor (x, y) position for the specified pane.
+func (m *Manager) CursorPosition(paneID string) (int, int, error) {
+	target := fmt.Sprintf("%s:0.%s", m.Session, paneID)
+	out, err := m.tmuxCmd("display-message", "-t", target, "-p", "#{cursor_x} #{cursor_y}").Output()
+	if err != nil {
+		return 0, 0, err
+	}
+	var x, y int
+	_, err = fmt.Sscanf(strings.TrimSpace(string(out)), "%d %d", &x, &y)
+	return x, y, err
+}
+
 // KillSession destroys the tmux session.
 func (m *Manager) KillSession() error {
 	return m.killSessionCmd().Run()
@@ -124,3 +136,4 @@ func (m *Manager) KillSession() error {
 func (m *Manager) HasSession() bool {
 	return m.hasSessionCmd().Run() == nil
 }
+

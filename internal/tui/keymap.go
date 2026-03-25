@@ -17,10 +17,14 @@ type KeyMap struct {
 // ParseKeyBinding converts a config string like "ctrl+space" or "f1" into a
 // bubbletea key.Binding.
 func ParseKeyBinding(s string) key.Binding {
-	// Normalise: "ctrl+space" → "ctrl+ " (bubbletea uses literal space char)
 	norm := strings.ToLower(s)
-	if strings.HasSuffix(norm, "+space") {
-		norm = strings.TrimSuffix(norm, "space") + " "
+	// ctrl+space sends NUL (0x00), which bubbletea represents as "ctrl+@"
+	if norm == "ctrl+space" {
+		return key.NewBinding(key.WithKeys("ctrl+@"))
+	}
+	// Bare "space" → literal space character
+	if norm == "space" {
+		return key.NewBinding(key.WithKeys(" "))
 	}
 	return key.NewBinding(key.WithKeys(norm))
 }

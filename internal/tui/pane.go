@@ -14,6 +14,8 @@ type PaneModel struct {
 	targetID       string
 	label          string
 	content        string
+	cursorX        int
+	cursorY        int
 	lastActive     time.Time
 	activeMs       int
 	idleMs         int
