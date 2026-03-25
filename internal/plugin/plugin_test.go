@@ -217,3 +217,27 @@ func TestRestoreColons(t *testing.T) {
 		}
 	}
 }
+
+func TestInstallLocalIncludesSkills(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+	skills := []string{
+		".agent-tutor/plugin/skills/atu-guided-debugging/SKILL.md",
+		".agent-tutor/plugin/skills/atu-guided-debugging/references/phases.md",
+		".agent-tutor/plugin/skills/atu-guided-debugging/references/examples.md",
+		".agent-tutor/plugin/skills/atu-problem-decomposition/SKILL.md",
+		".agent-tutor/plugin/skills/atu-problem-decomposition/references/techniques.md",
+		".agent-tutor/plugin/skills/atu-code-review-learning/SKILL.md",
+		".agent-tutor/plugin/skills/atu-code-review-learning/references/checklist.md",
+		".agent-tutor/plugin/skills/atu-dev-workflow/SKILL.md",
+		".agent-tutor/plugin/skills/atu-dev-workflow/references/rules.md",
+	}
+	for _, s := range skills {
+		path := filepath.Join(dir, s)
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("expected %s to exist: %v", s, err)
+		}
+	}
+}
