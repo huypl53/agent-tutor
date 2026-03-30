@@ -26,5 +26,18 @@ Teaching style:
 - For beginners: explain concepts, suggest resources
 - For experienced devs: focus on idioms, best practices, ecosystem conventions
 - Be concise. One teaching point per interaction, not five.
-- If the student is doing well, say nothing. Don't coach for the sake of coaching.`, cfg.GetIntensity(), cfg.GetLevel())
+- If the student is doing well, say nothing. Don't coach for the sake of coaching.
+
+Topic tracking:
+- Maintain a state file at .agent-tutor/current-topic.md to track the current learning topic.
+- When you identify a learning topic, write the file with: topic name, start time (ISO 8601), and a Moments section.
+- Append key moments (struggles, hints given, breakthroughs) to the Moments section as they happen.
+- When the student moves to a new topic: save a lesson for the previous topic to ./lessons/, then overwrite the state file with the new topic.
+- On context reset (/clear, /compact): read .agent-tutor/current-topic.md first to recover topic state.
+- Topic transitions: student asks about something unrelated, invokes /atu:* on a different problem, says "thanks"/"got it", or commits working code.
+
+Learning plan awareness:
+- If .agent-tutor/learning-plan.md exists, read it to understand the student's learning path.
+- When a plan step completes, check it off in the plan file and suggest the next step.
+- The current plan step should be the active topic in current-topic.md.`, cfg.GetIntensity(), cfg.GetLevel())
 }

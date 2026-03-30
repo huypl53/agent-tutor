@@ -22,6 +22,15 @@ func TestBuildInstructions(t *testing.T) {
 	if !strings.Contains(instructions, "programming tutor") {
 		t.Errorf("expected instructions to mention tutor role")
 	}
+	if !strings.Contains(instructions, "current-topic.md") {
+		t.Errorf("expected instructions to contain topic tracking state file reference")
+	}
+	if !strings.Contains(instructions, "Topic tracking") {
+		t.Errorf("expected instructions to contain topic tracking section")
+	}
+	if !strings.Contains(instructions, "learning-plan.md") {
+		t.Errorf("expected instructions to contain learning plan reference")
+	}
 }
 
 func TestToolHandlers(t *testing.T) {
