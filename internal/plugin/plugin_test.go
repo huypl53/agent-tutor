@@ -359,6 +359,26 @@ func TestInstallLocal_TopicTracking(t *testing.T) {
 	}
 }
 
+func TestInstallLocal_LearningPlan(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, ".claude", "CLAUDE.md"))
+	content := string(data)
+
+	checks := []string{
+		"/atu:plan",
+		"learning-plan.md",
+		"## Learning Plan Awareness",
+	}
+	for _, want := range checks {
+		if !strings.Contains(content, want) {
+			t.Errorf("CLAUDE.md missing learning plan content: %q", want)
+		}
+	}
+}
+
 func TestInstallLocalCLAUDEmdHasTeachingContent(t *testing.T) {
 	dir := t.TempDir()
 	if err := Install(dir, ScopeLocal); err != nil {
