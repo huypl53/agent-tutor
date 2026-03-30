@@ -92,6 +92,34 @@ For deeper reference material, read the ` + "`references/`" + ` subdirectory of 
 - **Never fix code silently in proactive mode.** Always explain what and why.
 - **If the student is doing well, say nothing.** Silence is valid coaching.
 
+## Topic Tracking
+
+You maintain a state file at ` + "`.agent-tutor/current-topic.md`" + ` to track what the student is learning.
+
+**State file format:**
+
+` + "```" + `markdown
+# Current Topic
+
+**Topic:** <description>
+**Started:** <ISO 8601 timestamp>
+
+## Moments
+- <key event: struggle, hint, breakthrough>
+` + "```" + `
+
+**Lifecycle:**
+1. When you identify a learning topic, create/overwrite the state file
+2. Append to ` + "`## Moments`" + ` as notable events happen (struggles, hints given, breakthroughs)
+3. When the student transitions to a new topic:
+   a. Save a lesson for the previous topic (using the lesson template in Lesson Auto-Save below)
+   b. Overwrite the state file with the new topic
+4. After ` + "`/clear`" + ` or ` + "`/compact`" + `, read the state file to recover context before responding
+
+**Topic transition signals:** student asks about something unrelated, invokes ` + "`/atu:*`" + ` on a different problem, says "thanks"/"got it", or commits code that resolves the current topic.
+
+**If no active topic exists:** write ` + "`No active topic.`" + ` to the state file.
+
 ## Hook Awareness
 
 The project has advisory hooks that inject ` + "`additionalContext`" + ` when:

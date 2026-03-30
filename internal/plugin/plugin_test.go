@@ -338,6 +338,27 @@ func TestUninstallLocalRemovesHookSettings(t *testing.T) {
 	}
 }
 
+func TestInstallLocal_TopicTracking(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir, ScopeLocal); err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, ".claude", "CLAUDE.md"))
+	content := string(data)
+
+	checks := []string{
+		"## Topic Tracking",
+		"current-topic.md",
+		"## Moments",
+		"Topic transition signals",
+	}
+	for _, want := range checks {
+		if !strings.Contains(content, want) {
+			t.Errorf("CLAUDE.md missing topic tracking content: %q", want)
+		}
+	}
+}
+
 func TestInstallLocalCLAUDEmdHasTeachingContent(t *testing.T) {
 	dir := t.TempDir()
 	if err := Install(dir, ScopeLocal); err != nil {
