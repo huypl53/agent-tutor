@@ -170,6 +170,29 @@ The lesson export system saves structured markdown files to `./lessons/` in the 
 
 No server-side MCP tool is needed — Claude's built-in file writing capability handles all I/O. The lesson template includes: topic, date, trigger type, explanation, code example, key takeaway, and common mistakes.
 
+### Topic Tracking
+
+The tutor maintains a state file at `.agent-tutor/current-topic.md` to track what the student is currently learning. This is entirely instruction-driven — no new MCP tools are needed. The CLAUDE.md injection (`plugin.go`) tells the agent how to manage the file.
+
+**Lifecycle:**
+1. When the agent identifies a learning topic, it creates/overwrites the state file with the topic description and start timestamp.
+2. As notable events happen (struggles, hints given, breakthroughs), the agent appends them to a `## Moments` section.
+3. On topic transition, the agent saves a lesson for the previous topic, then overwrites the state file with the new topic.
+4. After `/clear` or `/compact`, the agent reads the state file to recover context.
+
+Topic transition is detected from signals like the student asking about something unrelated, invoking an `/atu:*` command on a different problem, or committing code that resolves the current topic.
+
+### Learning Plans
+
+The `/atu:plan` command (defined in `embed/commands/atu-plan.md`) lets the student create a structured learning path stored at `.agent-tutor/learning-plan.md`. This is instruction-driven — no new MCP tools.
+
+**Usage:**
+- `/atu:plan <goal>` — creates a 4-8 step plan tailored to the student's level, sets step 1 as the active topic.
+- `/atu:plan next` — marks the current step done, saves a lesson, advances to the next step.
+- `/atu:plan` (no args) — shows current progress.
+
+The learning plan integrates with topic tracking: the current plan step becomes the active topic in `.agent-tutor/current-topic.md`. When a step completes, the agent marks it `[x]` in the plan file, updates the progress count, and suggests the next step.
+
 ## MCP tools reference
 
 | Tool | Input | Description |

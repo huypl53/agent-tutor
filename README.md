@@ -69,6 +69,7 @@ agent-tutor uninstall-plugin
 | `/atu:review` | Self-review coaching with graduated checklist |
 | `/atu:decompose` | Problem decomposition coaching |
 | `/atu:workflow` | Development workflow habit coaching |
+| `/atu:plan` | Create a learning plan or show progress |
 
 ## Lesson Export
 
@@ -92,6 +93,22 @@ Each lesson file follows this structure:
     ## Common Mistakes
 
 Lessons are saved to your project directory. Add `lessons/` to `.gitignore` to keep them local, or commit them to share with others.
+
+## Topic Tracking
+
+The tutor automatically tracks what you're currently learning in `.agent-tutor/current-topic.md`. It records key moments (struggles, hints, breakthroughs) and saves a lesson when you move to a new topic. After `/clear` or `/compact`, the tutor reads this file to recover context about what you were working on.
+
+## Learning Plans
+
+Create a structured learning path with `/atu:plan`:
+
+```
+/atu:plan Build a REST API in Go    # creates a 4-8 step plan
+/atu:plan                            # shows current progress
+/atu:plan next                       # marks current step done, advances
+```
+
+Plans are stored in `.agent-tutor/learning-plan.md` and integrate with topic tracking — the current plan step becomes the active topic. The tutor references the plan when coaching and suggests the next step when you complete one.
 
 ## TUI Mode
 
