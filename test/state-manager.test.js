@@ -295,4 +295,21 @@ describe('StateManager', () => {
       assert.equal(plan.goal, 'G');
     });
   });
+
+  describe('session', () => {
+    it('saveSession stores context', async () => {
+      await sm.saveSession({ activeTopicId: 'promises', resumeContext: 'Working on error handling' });
+      const state = await sm.readState();
+      assert.equal(state.session.activeTopicId, 'promises');
+      assert.equal(state.session.resumeContext, 'Working on error handling');
+      assert.ok(state.session.lastActivity);
+    });
+
+    it('restoreSession returns session or null', async () => {
+      assert.equal(await sm.restoreSession(), null);
+      await sm.saveSession({ activeTopicId: 'x', resumeContext: 'test' });
+      const session = await sm.restoreSession();
+      assert.equal(session.activeTopicId, 'x');
+    });
+  });
 });

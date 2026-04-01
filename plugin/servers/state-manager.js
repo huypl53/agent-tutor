@@ -160,6 +160,22 @@ class StateManager {
     const state = await this.readState();
     return state.plan;
   }
+
+  async saveSession({ activeTopicId, resumeContext }) {
+    const state = await this.readState();
+    state.session = {
+      activeTopicId,
+      resumeContext,
+      lastActivity: new Date().toISOString(),
+    };
+    await this.writeState(state);
+    return state.session;
+  }
+
+  async restoreSession() {
+    const state = await this.readState();
+    return state.session;
+  }
 }
 
 module.exports = { StateManager, EMPTY_STATE, TOPIC_STATUSES, VALID_TRANSITIONS };
