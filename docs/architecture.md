@@ -19,6 +19,11 @@
 │  │  │chokidar │ │ git CLI   │ │                 │
 │  │  │(files)  │ │(commits)  │ │                 │
 │  │  └─────────┘ └───────────┘ │                 │
+│  │  ┌─────────────────────────┐│                 │
+│  │  │    StateManager         ││                 │
+│  │  │  state-manager.js       ││                 │
+│  │  │  (.agent-tutor/state.json)│                │
+│  │  └─────────────────────────┘│                 │
 │  └────────────────────────────┘                 │
 └─────────────────────────────────────────────────┘
 ```
@@ -37,7 +42,8 @@ agent-tutor/
 │   ├── hooks/
 │   │   └── hooks.json            # PostToolUse hook definitions
 │   ├── servers/
-│   │   └── tutoring-mcp.js       # MCP server (5 tools, file watcher)
+│   │   ├── tutoring-mcp.js       # MCP server (16 tools, file watcher)
+│   │   └── state-manager.js      # StateManager (JSON state, topic state machine)
 │   └── skills/
 │       ├── atu-check/SKILL.md    # 9 slash command skills
 │       ├── atu-debug/SKILL.md
@@ -61,7 +67,9 @@ agent-tutor/
 
 ### MCP Server (`plugin/servers/tutoring-mcp.js`)
 
-Node.js MCP server using `@modelcontextprotocol/sdk` over stdio transport. Provides 5 tools:
+Node.js MCP server using `@modelcontextprotocol/sdk` over stdio transport. Provides 16 tools across three domains:
+
+**Observation tools (5):**
 
 | Tool | Input | Description |
 |------|-------|-------------|
@@ -70,6 +78,54 @@ Node.js MCP server using `@modelcontextprotocol/sdk` over stdio transport. Provi
 | `get_git_activity` | none | Recent commits and working tree status |
 | `get_coaching_config` | none | Current intensity and student level |
 | `set_coaching_intensity` | `intensity` (enum) | Set to proactive, on-demand, or silent |
+
+**Learning state tools (11) — thin shells over StateManager:**
+
+| Tool | Input | Description |
+|------|-------|-------------|
+| `create_topic` | `id`, `title`, `complexity?`, `dependencies?` | Register a new learning topic |
+| `update_topic` | `id`, `status?`, `moment?`, `complexity?`, `lessonFile?` | Update topic status/moments |
+| `get_topic` | `id` | Get full topic details |
+| `list_topics` | `status?` | List topics, optionally filtered by status |
+| `get_topic_graph` | none | Topic dependency graph (nodes + edges) |
+| `create_plan` | `goal`, `steps[]` | Create a structured learning plan |
+| `update_plan` | `stepUpdates[]` | Mark steps completed, add steps |
+| `get_plan` | none | Get current plan with progress |
+| `save_session` | `activeTopicId`, `resumeContext` | Save session for recovery |
+| `restore_session` | none | Restore last saved session |
+| `get_learning_summary` | none | Aggregate summary of all learning state |
+
+### StateManager (`plugin/servers/state-manager.js`)
+
+Manages all learning state in `.agent-tutor/state.json`. Three-layer architecture:
+
+```
+MCP tool handler → StateManager method → state.json (atomic write)
+```
+
+**State schema (v1):**
+```json
+{
+  "version": 1,
+  "topics": { "<id>": { "id", "title", "status", "complexity", "dependencies", "moments", "lessonFile" } },
+  "plan": { "goal", "steps": [{ "topicId", "order", "status" }], "progress": { "completed", "total" } },
+  "session": { "activeTopicId", "resumeContext", "lastActivity" }
+}
+```
+
+**Topic state machine:**
+```
+introduced → practicing → struggling → breakthrough → mastered
+                 ↑            │              │
+                 └─────────────┘              │
+                 └────────────────────────────┘
+```
+
+Valid transitions: `introduced→practicing`, `practicing→{struggling,breakthrough,mastered}`, `struggling→{practicing,breakthrough}`, `breakthrough→{mastered,practicing}`, `mastered→∅` (terminal).
+
+**Atomic writes:** Uses write-to-temp + rename pattern to prevent corruption.
+
+**Auto-migration:** On first load, if `state.json` doesn't exist but `current-topic.md` or `learning-plan.md` do, parses them into the JSON schema and renames originals to `.bak`.
 
 **File watcher:** Uses `chokidar` to watch source files (`*.{js,ts,py,go,rs,...}`), ignoring `node_modules`, `.git`, etc. Events are stored in a ring buffer (max 100 entries) with diffs captured via `git diff`.
 
@@ -150,7 +206,7 @@ Student activity
 
 5. **Git via child_process** — Simple `execSync` calls with timeouts. No git library dependency needed for the read-only queries used here.
 
-6. **Instruction-driven features** — Topic tracking, learning plans, and lesson auto-save are all driven by instructions in CLAUDE.md rather than MCP tools. The agent's file writing capability handles all I/O.
+6. **Layered state management** — StateManager class handles all state read/write with atomic operations. MCP tool handlers are thin shells calling StateManager methods, keeping the MCP layer focused on input/output formatting. Auto-migration from markdown files ensures backward compatibility.
 
 7. **Sentinel-based injection** — `<!-- BEGIN/END AGENT-TUTOR -->` markers enable idempotent install/uninstall of the instruction block.
 

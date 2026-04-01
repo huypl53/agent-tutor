@@ -89,11 +89,15 @@ Each lesson follows this structure:
 
 Add `lessons/` to `.gitignore` to keep them local, or commit them to share.
 
-## Topic Tracking
+## Learning State Management
 
-The tutor tracks what you're learning in `.agent-tutor/current-topic.md`. It records key moments (struggles, hints, breakthroughs) and saves a lesson when you move to a new topic. After `/clear` or `/compact`, it reads this file to recover context.
+All learning state is stored in `.agent-tutor/state.json` and managed via MCP tools:
 
-## Learning Plans
+- **Topic tracking** — Create and track learning topics with status progression (`introduced → practicing → struggling → breakthrough → mastered`). Each topic records moments (struggles, hints, breakthroughs) and links to saved lessons.
+- **Topic dependency graph** — Topics can declare dependencies, forming a graph the tutor uses to suggest learning order and connect concepts.
+- **Learning plans** — Structured multi-step plans with progress tracking. Steps reference topics and are marked as mastered/skipped as the student progresses.
+- **Session recovery** — After `/clear` or `/compact`, the tutor calls `restore_session` to recover the active topic and context without asking the student to re-explain.
+- **Auto-migration** — Existing `current-topic.md` and `learning-plan.md` files are automatically migrated to JSON on first load.
 
 Create a structured learning path with `/atu:plan`:
 
@@ -102,8 +106,6 @@ Create a structured learning path with `/atu:plan`:
 /atu:plan                            # shows current progress
 /atu:plan next                       # marks current step done, advances
 ```
-
-Plans are stored in `.agent-tutor/learning-plan.md` and integrate with topic tracking.
 
 ## Configuration
 
@@ -128,7 +130,7 @@ Change intensity via MCP tool: the agent can call `set_coaching_intensity` with 
 
 Agent Tutor is a Claude Code plugin with three components:
 
-1. **MCP Server** (`plugin/servers/tutoring-mcp.js`) — Node.js server providing 5 tools over stdio: `get_student_context`, `get_recent_file_changes`, `get_git_activity`, `get_coaching_config`, `set_coaching_intensity`. Uses `chokidar` for file watching and `child_process` for git queries.
+1. **MCP Server** (`plugin/servers/tutoring-mcp.js`) — Node.js server providing 16 tools over stdio: 5 observation tools (file changes, git activity, coaching config) and 11 learning state tools (topic CRUD, plans, sessions, summaries). Uses `chokidar` for file watching and a `StateManager` layer for atomic JSON state operations.
 
 2. **Skills** (`plugin/skills/`) — 9 slash command skills and 4 teaching methodology skills with reference material.
 
