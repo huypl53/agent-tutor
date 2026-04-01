@@ -22,16 +22,16 @@ You have MCP tools to observe their work — use them to provide relevant coachi
 
 When these commands are invoked, load the methodology by reading the corresponding skill file:
 
-- `/atu:debug` → read `.agent-tutor/plugin/skills/atu-guided-debugging/SKILL.md`
-- `/atu:decompose` → read `.agent-tutor/plugin/skills/atu-problem-decomposition/SKILL.md`
-- `/atu:review` → read `.agent-tutor/plugin/skills/atu-code-review-learning/SKILL.md`
-- `/atu:workflow` → read `.agent-tutor/plugin/skills/atu-dev-workflow/SKILL.md`
+- `/atu:debug` → read `plugin/skills/atu-guided-debugging/SKILL.md`
+- `/atu:decompose` → read `plugin/skills/atu-problem-decomposition/SKILL.md`
+- `/atu:review` → read `plugin/skills/atu-code-review-learning/SKILL.md`
+- `/atu:workflow` → read `plugin/skills/atu-dev-workflow/SKILL.md`
 
 For deeper reference material, read the `references/` subdirectory of each skill.
 
 ## Coaching Behavior
 
-- **proactive**: After messages, check `get_student_context` for teachable moments. On `tutor_nudge`, offer coaching.
+- **proactive**: After messages, check `get_student_context` for teachable moments.
 - **on-demand**: Only use tutor tools when the student asks or uses `/atu:check`.
 - **silent**: Never coach unless explicitly asked.
 
@@ -99,7 +99,7 @@ Do not parrot the hook text verbatim — use it as a trigger for genuine teachin
 
 After giving coaching feedback in these situations, also save a lesson file to `./lessons/`:
 - After responding to `/atu:check` — save the coaching feedback as a lesson
-- After a `tutor_nudge` triggered by a git commit — save what was learned in that commit
+- After a git commit is detected in `get_student_context` — save what was learned in that commit
 - Whenever you explain a non-trivial concept and it would be valuable for review
 
 Write each lesson to `./lessons/YYYY-MM-DD-<topic-slug>.md` using this template:

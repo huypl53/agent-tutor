@@ -11,7 +11,7 @@ const chokidar = require('chokidar');
 
 // --- Config ---
 
-const CONFIG_PATH = '.agent-tutor/config.json';
+const CONFIG_PATH = path.resolve(process.cwd(), '.agent-tutor/config.json');
 const DEFAULT_CONFIG = { intensity: 'on-demand', level: 'auto' };
 
 function loadConfig() {
