@@ -89,7 +89,7 @@ The tutor tracks what you're learning in `.agent-tutor/current-topic.md`. It rec
 Create a structured learning path with `/atu:plan`:
 
 ```
-/atu:plan Build a REST API in Go    # creates a 4-8 step plan
+/atu:plan Build a REST API           # creates a 4-8 step plan
 /atu:plan                            # shows current progress
 /atu:plan next                       # marks current step done, advances
 ```
