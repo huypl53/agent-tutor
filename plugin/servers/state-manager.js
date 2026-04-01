@@ -30,8 +30,11 @@ class StateManager {
     try {
       const raw = fs.readFileSync(this._file, 'utf8');
       return JSON.parse(raw);
-    } catch {
-      return JSON.parse(JSON.stringify(EMPTY_STATE));
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        return JSON.parse(JSON.stringify(EMPTY_STATE));
+      }
+      throw err;
     }
   }
 
@@ -75,7 +78,7 @@ class StateManager {
     if (!topic) {
       throw new Error(`Topic "${id}" not found`);
     }
-    if (updates.status) {
+    if (updates.status !== undefined) {
       this.validateTransition(topic.status, updates.status);
       topic.status = updates.status;
     }
@@ -213,8 +216,8 @@ class StateManager {
       if (topic) {
         state.topics[topic.id] = topic;
         migrated = true;
+        fs.renameSync(topicFile, topicFile + '.bak');
       }
-      fs.renameSync(topicFile, topicFile + '.bak');
     }
 
     // Migrate learning-plan.md
@@ -225,8 +228,8 @@ class StateManager {
       if (plan) {
         state.plan = plan;
         migrated = true;
+        fs.renameSync(planFile, planFile + '.bak');
       }
-      fs.renameSync(planFile, planFile + '.bak');
     }
 
     if (migrated) {
@@ -271,7 +274,7 @@ class StateManager {
     if (!goalMatch) return null;
 
     const steps = [];
-    const stepRegex = /^- \[(x| )\] \d+\.\s*\*\*(.+?)\*\*\s*—\s*(.+)$/gm;
+    const stepRegex = /^- \[(x| )\] \d+\.\s*\*\*(.+?)\*\*\s*(?:—|--|–)\s*(.+)$/gm;
     let m;
     let order = 1;
     while ((m = stepRegex.exec(content))) {

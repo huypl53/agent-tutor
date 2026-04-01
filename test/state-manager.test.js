@@ -46,6 +46,13 @@ describe('StateManager', () => {
       assert.equal(loaded.topics['test-topic'].title, 'Test Topic');
     });
 
+    it('throws on corrupt JSON instead of returning empty state', async () => {
+      const atuDir = path.join(tmpDir, '.agent-tutor');
+      fs.mkdirSync(atuDir, { recursive: true });
+      fs.writeFileSync(path.join(atuDir, 'state.json'), '{corrupt json!!!');
+      await assert.rejects(() => sm.readState(), /Unexpected token|Expected/);
+    });
+
     it('creates .agent-tutor directory if missing', async () => {
       await sm.readState();
       // readState should not create the dir (lazy)
