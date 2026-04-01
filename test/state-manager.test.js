@@ -235,4 +235,64 @@ describe('StateManager', () => {
       assert.equal(graph.edges.length, 0);
     });
   });
+
+  describe('plan CRUD', () => {
+    it('createPlan stores a learning plan', async () => {
+      await sm.createPlan({
+        goal: 'Learn async JS',
+        steps: [
+          { topicId: 'callbacks', order: 1 },
+          { topicId: 'promises', order: 2 },
+        ],
+      });
+      const state = await sm.readState();
+      assert.equal(state.plan.goal, 'Learn async JS');
+      assert.equal(state.plan.steps.length, 2);
+      assert.equal(state.plan.steps[0].status, 'pending');
+      assert.deepEqual(state.plan.progress, { completed: 0, total: 2 });
+    });
+
+    it('createPlan overwrites existing plan', async () => {
+      await sm.createPlan({ goal: 'Old', steps: [{ topicId: 'a', order: 1 }] });
+      await sm.createPlan({ goal: 'New', steps: [{ topicId: 'b', order: 1 }] });
+      const state = await sm.readState();
+      assert.equal(state.plan.goal, 'New');
+    });
+
+    it('updatePlan marks steps completed and updates progress', async () => {
+      await sm.createPlan({
+        goal: 'Learn',
+        steps: [
+          { topicId: 'a', order: 1 },
+          { topicId: 'b', order: 2 },
+        ],
+      });
+      await sm.updatePlan([{ topicId: 'a', status: 'mastered' }]);
+      const state = await sm.readState();
+      assert.equal(state.plan.steps[0].status, 'mastered');
+      assert.deepEqual(state.plan.progress, { completed: 1, total: 2 });
+    });
+
+    it('updatePlan adds new steps', async () => {
+      await sm.createPlan({ goal: 'Learn', steps: [{ topicId: 'a', order: 1 }] });
+      await sm.updatePlan([{ topicId: 'c', order: 2, action: 'add' }]);
+      const state = await sm.readState();
+      assert.equal(state.plan.steps.length, 2);
+      assert.deepEqual(state.plan.progress, { completed: 0, total: 2 });
+    });
+
+    it('updatePlan rejects when no plan exists', async () => {
+      await assert.rejects(
+        () => sm.updatePlan([{ topicId: 'a', status: 'mastered' }]),
+        /No plan exists/
+      );
+    });
+
+    it('getPlan returns plan or null', async () => {
+      assert.equal(await sm.getPlan(), null);
+      await sm.createPlan({ goal: 'G', steps: [{ topicId: 'x', order: 1 }] });
+      const plan = await sm.getPlan();
+      assert.equal(plan.goal, 'G');
+    });
+  });
 });

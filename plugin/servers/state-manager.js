@@ -123,6 +123,43 @@ class StateManager {
     }
     return { nodes, edges };
   }
+
+  async createPlan({ goal, steps }) {
+    const state = await this.readState();
+    state.plan = {
+      goal,
+      steps: steps.map(s => ({ topicId: s.topicId, order: s.order, status: 'pending' })),
+      progress: { completed: 0, total: steps.length },
+    };
+    await this.writeState(state);
+    return state.plan;
+  }
+
+  async updatePlan(stepUpdates) {
+    const state = await this.readState();
+    if (!state.plan) {
+      throw new Error('No plan exists. Create one first.');
+    }
+    for (const update of stepUpdates) {
+      if (update.action === 'add') {
+        state.plan.steps.push({ topicId: update.topicId, order: update.order, status: 'pending' });
+      } else {
+        const step = state.plan.steps.find(s => s.topicId === update.topicId);
+        if (step && update.status) {
+          step.status = update.status;
+        }
+      }
+    }
+    const completed = state.plan.steps.filter(s => s.status === 'mastered' || s.status === 'skipped').length;
+    state.plan.progress = { completed, total: state.plan.steps.length };
+    await this.writeState(state);
+    return state.plan;
+  }
+
+  async getPlan() {
+    const state = await this.readState();
+    return state.plan;
+  }
 }
 
 module.exports = { StateManager, EMPTY_STATE, TOPIC_STATUSES, VALID_TRANSITIONS };
