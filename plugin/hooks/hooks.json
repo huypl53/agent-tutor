@@ -1,0 +1,18 @@
+{
+  "PostToolUse": [
+    {
+      "matcher": "Write|Edit",
+      "hooks": [{
+        "type": "command",
+        "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/large-file-detect.js"
+      }]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [{
+        "type": "command",
+        "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/error-pattern-detect.js"
+      }]
+    }
+  ]
+}
