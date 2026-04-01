@@ -312,4 +312,30 @@ describe('StateManager', () => {
       assert.equal(session.activeTopicId, 'x');
     });
   });
+
+  describe('getLearningSummary', () => {
+    it('returns aggregate summary', async () => {
+      await sm.createTopic({ id: 'a', title: 'A' });
+      await sm.createTopic({ id: 'b', title: 'B' });
+      await sm.updateTopic('a', { status: 'practicing' });
+      await sm.updateTopic('a', { moment: { type: 'struggle', detail: 'hard' } });
+      await sm.createPlan({ goal: 'G', steps: [{ topicId: 'a', order: 1 }, { topicId: 'b', order: 2 }] });
+
+      const summary = await sm.getLearningSummary();
+      assert.equal(summary.topicsByStatus.introduced, 1);
+      assert.equal(summary.topicsByStatus.practicing, 1);
+      assert.equal(summary.totalTopics, 2);
+      assert.equal(summary.plan.goal, 'G');
+      assert.equal(summary.plan.progress.completed, 0);
+      assert.equal(summary.plan.progress.total, 2);
+      assert.equal(summary.recentMoments.length, 1);
+    });
+
+    it('returns summary with no data', async () => {
+      const summary = await sm.getLearningSummary();
+      assert.equal(summary.totalTopics, 0);
+      assert.equal(summary.plan, null);
+      assert.equal(summary.recentMoments.length, 0);
+    });
+  });
 });

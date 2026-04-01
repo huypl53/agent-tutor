@@ -176,6 +176,28 @@ class StateManager {
     const state = await this.readState();
     return state.session;
   }
+
+  async getLearningSummary() {
+    const state = await this.readState();
+    const topics = Object.values(state.topics);
+
+    const topicsByStatus = {};
+    for (const s of TOPIC_STATUSES) topicsByStatus[s] = 0;
+    for (const t of topics) topicsByStatus[t.status]++;
+
+    const allMoments = topics
+      .flatMap(t => t.moments.map(m => ({ topicId: t.id, ...m })))
+      .sort((a, b) => b.ts.localeCompare(a.ts))
+      .slice(0, 10);
+
+    return {
+      totalTopics: topics.length,
+      topicsByStatus,
+      plan: state.plan ? { goal: state.plan.goal, progress: state.plan.progress } : null,
+      recentMoments: allMoments,
+      activeSession: state.session,
+    };
+  }
 }
 
 module.exports = { StateManager, EMPTY_STATE, TOPIC_STATUSES, VALID_TRANSITIONS };
