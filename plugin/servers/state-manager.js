@@ -105,6 +105,24 @@ class StateManager {
     }
     return topics;
   }
+
+  async getTopicGraph() {
+    const state = await this.readState();
+    const topics = Object.values(state.topics);
+    const nodes = topics.map(t => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      complexity: t.complexity,
+    }));
+    const edges = [];
+    for (const t of topics) {
+      for (const dep of t.dependencies) {
+        edges.push({ from: dep, to: t.id });
+      }
+    }
+    return { nodes, edges };
+  }
 }
 
 module.exports = { StateManager, EMPTY_STATE, TOPIC_STATUSES, VALID_TRANSITIONS };

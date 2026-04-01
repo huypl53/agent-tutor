@@ -215,4 +215,24 @@ describe('StateManager', () => {
       assert.equal(list[0].id, 'a');
     });
   });
+
+  describe('getTopicGraph', () => {
+    it('returns topics with dependency edges', async () => {
+      await sm.createTopic({ id: 'callbacks', title: 'Callbacks' });
+      await sm.createTopic({ id: 'promises', title: 'Promises', dependencies: ['callbacks'] });
+      await sm.createTopic({ id: 'async', title: 'Async/Await', dependencies: ['promises'] });
+
+      const graph = await sm.getTopicGraph();
+      assert.equal(graph.nodes.length, 3);
+      assert.equal(graph.edges.length, 2);
+      assert.deepEqual(graph.edges[0], { from: 'callbacks', to: 'promises' });
+      assert.deepEqual(graph.edges[1], { from: 'promises', to: 'async' });
+    });
+
+    it('returns empty graph when no topics', async () => {
+      const graph = await sm.getTopicGraph();
+      assert.equal(graph.nodes.length, 0);
+      assert.equal(graph.edges.length, 0);
+    });
+  });
 });
