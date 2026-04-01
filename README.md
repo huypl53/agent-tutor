@@ -4,32 +4,41 @@ A programming tutor plugin for coding agents (Claude Code, Codex CLI). Observes 
 
 ## Installation
 
+### Via Claude Code Marketplace (recommended)
+
 ```bash
-npm install -g agent-tutor
+claude plugin marketplace add github:huypl53/agent-tutor
+claude plugin install agent-tutor
 ```
 
-Requires Node.js 18+ and git on your PATH.
+The plugin auto-starts the MCP server, loads skills, and registers hooks.
 
-## Quick Start
-
-### Claude Code (plugin mode)
+### Via npm
 
 ```bash
-claude --plugin-dir $(npx agent-tutor plugin-dir)
+npm install -g @huypl53/agent-tutor
+```
+
+Then use as a Claude Code plugin:
+
+```bash
+claude --plugin-dir $(agent-tutor plugin-dir)
 ```
 
 Or inject tutor instructions into your project:
 
 ```bash
-npx agent-tutor install
+agent-tutor install
 ```
 
 ### Codex CLI
 
 ```bash
-npx agent-tutor install --agent codex
-codex mcp add agent-tutor -- node $(npx agent-tutor plugin-dir)/servers/tutoring-mcp.js
+npx @huypl53/agent-tutor install --agent codex
+codex mcp add agent-tutor -- node $(npx @huypl53/agent-tutor plugin-dir)/servers/tutoring-mcp.js
 ```
+
+Requires Node.js 18+ and git on your PATH.
 
 ## Commands
 
