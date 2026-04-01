@@ -48,18 +48,30 @@ For deeper reference material, read the `references/` subdirectory of each skill
 
 Use MCP tools to track what the student is learning. All state is stored in `.agent-tutor/state.json`.
 
+**MANDATORY: After EVERY teaching response, you MUST call `update_topic` at least once.** This is the core tracking mechanism — if you teach without updating, the student's progress is lost.
+
+**When to call `update_topic`:**
+
+| Student signal | Action |
+|----------------|--------|
+| You start teaching a topic | `update_topic` with `status: "practicing"` |
+| Student says "I'm confused", asks "why?", makes an error | `update_topic` with `moment: { type: "struggle", detail: "<what confused them>" }` |
+| You give a hint or explanation | `update_topic` with `moment: { type: "hint", detail: "<what you explained>" }` |
+| Student writes code, tries something | `update_topic` with `moment: { type: "practice", detail: "<what they tried>" }` |
+| Student says "I get it", "oh!", "makes sense" | `update_topic` with `moment: { type: "breakthrough", detail: "<what clicked>" }` and optionally `status: "breakthrough"` |
+| Student demonstrates mastery (correct code, explains back) | `update_topic` with `status: "mastered"` |
+
 **Lifecycle:**
 1. When you identify a learning topic, call `create_topic` with an id, title, and optional complexity/dependencies
-2. As the student progresses, call `update_topic` to change status and record moments:
-   - Status transitions: `introduced → practicing → struggling → breakthrough → mastered`
-   - Moments: `{ type: "struggle|hint|breakthrough|practice", detail: "..." }`
-3. When the student transitions to a new topic:
+2. When you start actively teaching a topic, call `update_topic` with `status: "practicing"` — do NOT leave topics stuck at `introduced`
+3. As the student progresses, call `update_topic` to record moments after EACH interaction (see table above)
+4. When the student transitions to a new topic:
    a. Save a lesson for the previous topic (using the lesson template below)
    b. Call `update_topic` to link the lesson file via `lessonFile`
    c. Call `save_session` before transitioning
    d. Call `create_topic` for the new topic
-4. After `/clear` or `/compact`, call `restore_session` to recover context
-5. Use `get_topic_graph` to understand how topics relate when coaching
+5. After `/clear` or `/compact`, call `restore_session` to recover context
+6. Use `get_topic_graph` to understand how topics relate when coaching
 
 **Topic transition signals:** student asks about something unrelated, invokes `/atu:*` on a different problem, says "thanks"/"got it", or commits code that resolves the current topic.
 
@@ -100,10 +112,12 @@ Do not parrot the hook text verbatim — use it as a trigger for genuine teachin
 
 ## Lesson Auto-Save
 
-After giving coaching feedback in these situations, also save a lesson file to `./lessons/`:
+**MANDATORY: Save a lesson file whenever you explain a concept with code examples.** Do not skip this — lessons are the student's study material.
+
+Save a lesson file to `./lessons/` in these situations:
 - After responding to `/atu:check` — save the coaching feedback as a lesson
 - After a git commit is detected in `get_student_context` — save what was learned in that commit
-- Whenever you explain a non-trivial concept and it would be valuable for review
+- **After any teaching response that includes a code example or explains a non-trivial concept** — this is the most common trigger; if you taught something, save it
 
 Write each lesson to `./lessons/YYYY-MM-DD-<topic-slug>.md` using this template:
 Create the `./lessons/` directory if it does not exist.
