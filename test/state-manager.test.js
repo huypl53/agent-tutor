@@ -404,7 +404,7 @@ describe('StateManager', () => {
 
       assert.ok(state.topics['javascript-promises']);
       assert.equal(state.topics['javascript-promises'].title, 'JavaScript Promises');
-      assert.equal(state.topics['javascript-promises'].status, 'introduced');
+      assert.equal(state.topics['javascript-promises'].status, 'practicing');
       assert.equal(state.topics['javascript-promises'].moments.length, 2);
       assert.ok(fs.existsSync(path.join(atuDir, 'current-topic.md.bak')));
       assert.equal(fs.existsSync(path.join(atuDir, 'current-topic.md')), false);
@@ -446,6 +446,26 @@ describe('StateManager', () => {
       assert.deepEqual(state.topics, {});
       // original file NOT renamed — migration was skipped
       assert.ok(fs.existsSync(path.join(atuDir, 'current-topic.md')));
+    });
+
+    it('infers status from moments during migration', async () => {
+      const atuDir = path.join(tmpDir, '.agent-tutor');
+      fs.mkdirSync(atuDir, { recursive: true });
+      fs.writeFileSync(path.join(atuDir, 'current-topic.md'), [
+        '# Current Topic',
+        '',
+        '**Topic:** Closures',
+        '**Started:** 2026-03-30T10:00:00Z',
+        '',
+        '## Moments',
+        '- struggle: confused about variable capture',
+        '- hint: explained lexical scope',
+        '- breakthrough: understood closure over loop vars',
+      ].join('\n'));
+
+      await sm.migrateIfNeeded();
+      const state = await sm.readState();
+      assert.equal(state.topics['closures'].status, 'breakthrough');
     });
 
     it('handles missing markdown files gracefully', async () => {

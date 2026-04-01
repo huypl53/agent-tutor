@@ -280,10 +280,19 @@ class StateManager {
       });
     }
 
+    // Infer status from moments
+    let status = 'introduced';
+    if (moments.length > 0) {
+      const lastType = moments[moments.length - 1].type;
+      if (lastType === 'breakthrough') status = 'breakthrough';
+      else if (lastType === 'struggle') status = 'struggling';
+      else status = 'practicing';
+    }
+
     return {
       id,
       title,
-      status: 'introduced',
+      status,
       complexity: null,
       dependencies: [],
       started: startedMatch ? startedMatch[1].trim() : new Date().toISOString(),
