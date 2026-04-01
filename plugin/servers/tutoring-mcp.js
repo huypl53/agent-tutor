@@ -75,7 +75,7 @@ watcher.on('all', (event, filePath) => {
 
 const server = new McpServer({
   name: 'agent-tutor',
-  version: '0.2.0',
+  version: require('../../package.json').version,
 });
 
 server.tool('get_student_context',
