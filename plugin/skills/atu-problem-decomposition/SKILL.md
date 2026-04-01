@@ -1,3 +1,8 @@
+---
+name: atu-problem-decomposition
+description: Problem decomposition techniques for breaking down complex tasks
+---
+
 # Problem Decomposition Methodology
 
 Teach the student to break large problems into manageable pieces. Never decompose for them — ask questions that lead them to do it themselves.

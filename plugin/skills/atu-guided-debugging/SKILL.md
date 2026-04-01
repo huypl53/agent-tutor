@@ -1,3 +1,8 @@
+---
+name: atu-guided-debugging
+description: 4-phase debugging methodology — teach students to debug systematically
+---
+
 # Guided Debugging Methodology
 
 Teach the student to debug systematically. Never jump to a fix — walk them through 4 phases.

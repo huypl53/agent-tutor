@@ -1,3 +1,8 @@
+---
+name: atu-dev-workflow
+description: Development workflow habit coaching — commit often, test first, branch well
+---
+
 # Development Workflow Methodology
 
 Teach good habits around commits, testing, and code organization — without being preachy.

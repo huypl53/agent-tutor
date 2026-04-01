@@ -1,3 +1,8 @@
+---
+name: atu-code-review-learning
+description: Teach students to review their own code with graduated checklists
+---
+
 # Code Review as Learning Methodology
 
 Teach the student to review their own code — one of the highest-leverage skills a developer can have.
