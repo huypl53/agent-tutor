@@ -111,4 +111,108 @@ describe('StateManager', () => {
       );
     });
   });
+
+  describe('topics CRUD', () => {
+    it('createTopic adds a new topic', async () => {
+      await sm.createTopic({ id: 'promises', title: 'JavaScript Promises' });
+      const state = await sm.readState();
+      assert.equal(state.topics['promises'].title, 'JavaScript Promises');
+      assert.equal(state.topics['promises'].status, 'introduced');
+      assert.ok(state.topics['promises'].started);
+    });
+
+    it('createTopic with optional fields', async () => {
+      await sm.createTopic({
+        id: 'async',
+        title: 'Async/Await',
+        complexity: 7,
+        dependencies: ['promises'],
+      });
+      const state = await sm.readState();
+      assert.equal(state.topics['async'].complexity, 7);
+      assert.deepEqual(state.topics['async'].dependencies, ['promises']);
+    });
+
+    it('createTopic rejects duplicate id', async () => {
+      await sm.createTopic({ id: 'x', title: 'X' });
+      await assert.rejects(
+        () => sm.createTopic({ id: 'x', title: 'X again' }),
+        /already exists/
+      );
+    });
+
+    it('updateTopic changes status with validation', async () => {
+      await sm.createTopic({ id: 't', title: 'T' });
+      await sm.updateTopic('t', { status: 'practicing' });
+      const state = await sm.readState();
+      assert.equal(state.topics['t'].status, 'practicing');
+    });
+
+    it('updateTopic rejects invalid transition', async () => {
+      await sm.createTopic({ id: 't', title: 'T' });
+      await assert.rejects(
+        () => sm.updateTopic('t', { status: 'mastered' }),
+        /Invalid transition/
+      );
+    });
+
+    it('updateTopic adds a moment', async () => {
+      await sm.createTopic({ id: 't', title: 'T' });
+      await sm.updateTopic('t', {
+        moment: { type: 'struggle', detail: 'confused about closures' },
+      });
+      const state = await sm.readState();
+      assert.equal(state.topics['t'].moments.length, 1);
+      assert.equal(state.topics['t'].moments[0].type, 'struggle');
+      assert.ok(state.topics['t'].moments[0].ts);
+    });
+
+    it('updateTopic sets complexity', async () => {
+      await sm.createTopic({ id: 't', title: 'T' });
+      await sm.updateTopic('t', { complexity: 5 });
+      const state = await sm.readState();
+      assert.equal(state.topics['t'].complexity, 5);
+    });
+
+    it('updateTopic sets lessonFile', async () => {
+      await sm.createTopic({ id: 't', title: 'T' });
+      await sm.updateTopic('t', { lessonFile: 'lessons/2026-04-01-t.md' });
+      const state = await sm.readState();
+      assert.equal(state.topics['t'].lessonFile, 'lessons/2026-04-01-t.md');
+    });
+
+    it('updateTopic rejects unknown topic', async () => {
+      await assert.rejects(
+        () => sm.updateTopic('nope', { status: 'practicing' }),
+        /not found/
+      );
+    });
+
+    it('getTopic returns a topic', async () => {
+      await sm.createTopic({ id: 't', title: 'T' });
+      const topic = await sm.getTopic('t');
+      assert.equal(topic.title, 'T');
+    });
+
+    it('getTopic returns null for unknown', async () => {
+      const topic = await sm.getTopic('nope');
+      assert.equal(topic, null);
+    });
+
+    it('listTopics returns all topics', async () => {
+      await sm.createTopic({ id: 'a', title: 'A' });
+      await sm.createTopic({ id: 'b', title: 'B' });
+      const list = await sm.listTopics();
+      assert.equal(list.length, 2);
+    });
+
+    it('listTopics filters by status', async () => {
+      await sm.createTopic({ id: 'a', title: 'A' });
+      await sm.createTopic({ id: 'b', title: 'B' });
+      await sm.updateTopic('a', { status: 'practicing' });
+      const list = await sm.listTopics('practicing');
+      assert.equal(list.length, 1);
+      assert.equal(list[0].id, 'a');
+    });
+  });
 });

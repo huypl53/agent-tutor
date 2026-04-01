@@ -48,6 +48,63 @@ class StateManager {
     fs.writeFileSync(tmp, JSON.stringify(state, null, 2) + '\n');
     fs.renameSync(tmp, this._file);
   }
+
+  async createTopic({ id, title, complexity = null, dependencies = [] }) {
+    const state = await this.readState();
+    if (state.topics[id]) {
+      throw new Error(`Topic "${id}" already exists`);
+    }
+    state.topics[id] = {
+      id,
+      title,
+      status: 'introduced',
+      complexity,
+      dependencies,
+      subtopics: [],
+      started: new Date().toISOString(),
+      moments: [],
+      lessonFile: null,
+    };
+    await this.writeState(state);
+    return state.topics[id];
+  }
+
+  async updateTopic(id, updates) {
+    const state = await this.readState();
+    const topic = state.topics[id];
+    if (!topic) {
+      throw new Error(`Topic "${id}" not found`);
+    }
+    if (updates.status) {
+      this.validateTransition(topic.status, updates.status);
+      topic.status = updates.status;
+    }
+    if (updates.moment) {
+      topic.moments.push({ ...updates.moment, ts: new Date().toISOString() });
+    }
+    if (updates.complexity !== undefined) {
+      topic.complexity = updates.complexity;
+    }
+    if (updates.lessonFile !== undefined) {
+      topic.lessonFile = updates.lessonFile;
+    }
+    await this.writeState(state);
+    return topic;
+  }
+
+  async getTopic(id) {
+    const state = await this.readState();
+    return state.topics[id] || null;
+  }
+
+  async listTopics(status = null) {
+    const state = await this.readState();
+    let topics = Object.values(state.topics);
+    if (status) {
+      topics = topics.filter(t => t.status === status);
+    }
+    return topics;
+  }
 }
 
 module.exports = { StateManager, EMPTY_STATE, TOPIC_STATUSES, VALID_TRANSITIONS };
