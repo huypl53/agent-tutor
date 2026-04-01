@@ -36,6 +36,9 @@
     "commander": "^13.1.0",
     "zod": "^3.24.0"
   },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
   "engines": {
     "node": ">=18"
   }
