@@ -56,4 +56,59 @@ describe('StateManager', () => {
       assert.ok(fs.existsSync(path.join(tmpDir, '.agent-tutor', 'state.json')));
     });
   });
+
+  describe('topic status transitions', () => {
+    it('allows introduced → practicing', () => {
+      assert.doesNotThrow(() => sm.validateTransition('introduced', 'practicing'));
+    });
+
+    it('allows practicing → struggling', () => {
+      assert.doesNotThrow(() => sm.validateTransition('practicing', 'struggling'));
+    });
+
+    it('allows practicing → breakthrough', () => {
+      assert.doesNotThrow(() => sm.validateTransition('practicing', 'breakthrough'));
+    });
+
+    it('allows practicing → mastered', () => {
+      assert.doesNotThrow(() => sm.validateTransition('practicing', 'mastered'));
+    });
+
+    it('allows struggling → practicing', () => {
+      assert.doesNotThrow(() => sm.validateTransition('struggling', 'practicing'));
+    });
+
+    it('allows struggling → breakthrough', () => {
+      assert.doesNotThrow(() => sm.validateTransition('struggling', 'breakthrough'));
+    });
+
+    it('allows breakthrough → mastered', () => {
+      assert.doesNotThrow(() => sm.validateTransition('breakthrough', 'mastered'));
+    });
+
+    it('allows breakthrough → practicing', () => {
+      assert.doesNotThrow(() => sm.validateTransition('breakthrough', 'practicing'));
+    });
+
+    it('rejects introduced → mastered', () => {
+      assert.throws(
+        () => sm.validateTransition('introduced', 'mastered'),
+        /Invalid transition/
+      );
+    });
+
+    it('rejects mastered → anything', () => {
+      assert.throws(
+        () => sm.validateTransition('mastered', 'practicing'),
+        /Invalid transition/
+      );
+    });
+
+    it('rejects introduced → struggling', () => {
+      assert.throws(
+        () => sm.validateTransition('introduced', 'struggling'),
+        /Invalid transition/
+      );
+    });
+  });
 });

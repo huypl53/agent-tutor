@@ -3,6 +3,16 @@
 const fs = require('fs');
 const path = require('path');
 
+const VALID_TRANSITIONS = {
+  introduced: ['practicing'],
+  practicing: ['struggling', 'breakthrough', 'mastered'],
+  struggling: ['practicing', 'breakthrough'],
+  breakthrough: ['mastered', 'practicing'],
+  mastered: [],
+};
+
+const TOPIC_STATUSES = Object.keys(VALID_TRANSITIONS);
+
 const EMPTY_STATE = {
   version: 1,
   topics: {},
@@ -25,6 +35,13 @@ class StateManager {
     }
   }
 
+  validateTransition(from, to) {
+    const allowed = VALID_TRANSITIONS[from];
+    if (!allowed || !allowed.includes(to)) {
+      throw new Error(`Invalid transition: ${from} → ${to}`);
+    }
+  }
+
   async writeState(state) {
     fs.mkdirSync(this._dir, { recursive: true });
     const tmp = this._file + '.tmp';
@@ -33,4 +50,4 @@ class StateManager {
   }
 }
 
-module.exports = { StateManager, EMPTY_STATE };
+module.exports = { StateManager, EMPTY_STATE, TOPIC_STATUSES, VALID_TRANSITIONS };
