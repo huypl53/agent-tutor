@@ -275,9 +275,17 @@ describe('StateManager', () => {
       assert.deepEqual(state.plan.progress, { completed: 0, total: 2 });
     });
 
-    it('createPlan overwrites existing plan', async () => {
+    it('createPlan rejects if plan already exists', async () => {
       await sm.createPlan({ goal: 'Old', steps: [{ topicId: 'a', order: 1 }] });
-      await sm.createPlan({ goal: 'New', steps: [{ topicId: 'b', order: 1 }] });
+      await assert.rejects(
+        () => sm.createPlan({ goal: 'New', steps: [{ topicId: 'b', order: 1 }] }),
+        /already exists/
+      );
+    });
+
+    it('createPlan with force overwrites existing plan', async () => {
+      await sm.createPlan({ goal: 'Old', steps: [{ topicId: 'a', order: 1 }] });
+      await sm.createPlan({ goal: 'New', steps: [{ topicId: 'b', order: 1 }], force: true });
       const state = await sm.readState();
       assert.equal(state.plan.goal, 'New');
     });

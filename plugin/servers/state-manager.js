@@ -137,8 +137,11 @@ class StateManager {
     return { nodes, edges };
   }
 
-  async createPlan({ goal, steps }) {
+  async createPlan({ goal, steps, force = false }) {
     const state = await this.readState();
+    if (state.plan && !force) {
+      throw new Error('A plan already exists. Use force to overwrite, or delete it first.');
+    }
     state.plan = {
       goal,
       steps: steps.map(s => ({ topicId: s.topicId, order: s.order, status: 'pending' })),

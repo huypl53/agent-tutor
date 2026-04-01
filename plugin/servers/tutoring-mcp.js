@@ -248,10 +248,11 @@ server.tool('create_plan',
       topicId: z.string(),
       order: z.number(),
     })).describe('Ordered steps referencing topic IDs'),
+    force: z.boolean().optional().describe('Set to true to overwrite an existing plan'),
   },
-  async ({ goal, steps }) => {
+  async ({ goal, steps, force }) => {
     try {
-      const plan = await stateManager.createPlan({ goal, steps });
+      const plan = await stateManager.createPlan({ goal, steps, force });
       return { content: [{ type: 'text', text: JSON.stringify(plan, null, 2) }] };
     } catch (err) {
       return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
