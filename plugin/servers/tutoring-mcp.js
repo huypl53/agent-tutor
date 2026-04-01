@@ -181,7 +181,7 @@ server.tool('update_topic',
   'Update a learning topic: change status, add a moment, set complexity, or link a lesson',
   {
     id: z.string().describe('Topic ID to update'),
-    status: z.enum(['introduced', 'practicing', 'struggling', 'breakthrough', 'mastered']).optional().describe('New status (must be a valid transition)'),
+    status: z.enum(TOPIC_STATUSES).optional().describe('New status (must be a valid transition)'),
     moment: z.object({
       type: z.enum(['struggle', 'hint', 'breakthrough', 'practice']),
       detail: z.string(),
@@ -211,7 +211,7 @@ server.tool('get_topic',
 
 server.tool('list_topics',
   'List all learning topics, optionally filtered by status',
-  { status: z.enum(['introduced', 'practicing', 'struggling', 'breakthrough', 'mastered']).optional().describe('Filter by status') },
+  { status: z.enum(TOPIC_STATUSES).optional().describe('Filter by status') },
   async ({ status }) => {
     const topics = await stateManager.listTopics(status);
     return { content: [{ type: 'text', text: JSON.stringify(topics, null, 2) }] };
