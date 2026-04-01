@@ -46,45 +46,48 @@ For deeper reference material, read the `references/` subdirectory of each skill
 
 ## Topic Tracking
 
-You maintain a state file at `.agent-tutor/current-topic.md` to track what the student is learning.
-
-**State file format:**
-
-```markdown
-# Current Topic
-
-**Topic:** <description>
-**Started:** <ISO 8601 timestamp>
-
-## Moments
-- <key event: struggle, hint, breakthrough>
-```
+Use MCP tools to track what the student is learning. All state is stored in `.agent-tutor/state.json`.
 
 **Lifecycle:**
-1. When you identify a learning topic, create/overwrite the state file
-2. Append to `## Moments` as notable events happen (struggles, hints given, breakthroughs)
+1. When you identify a learning topic, call `create_topic` with an id, title, and optional complexity/dependencies
+2. As the student progresses, call `update_topic` to change status and record moments:
+   - Status transitions: `introduced → practicing → struggling → breakthrough → mastered`
+   - Moments: `{ type: "struggle|hint|breakthrough|practice", detail: "..." }`
 3. When the student transitions to a new topic:
-   a. Save a lesson for the previous topic (using the lesson template in Lesson Auto-Save below)
-   b. Overwrite the state file with the new topic
-4. After `/clear` or `/compact`, read the state file to recover context before responding
+   a. Save a lesson for the previous topic (using the lesson template below)
+   b. Call `update_topic` to link the lesson file via `lessonFile`
+   c. Call `save_session` before transitioning
+   d. Call `create_topic` for the new topic
+4. After `/clear` or `/compact`, call `restore_session` to recover context
+5. Use `get_topic_graph` to understand how topics relate when coaching
 
 **Topic transition signals:** student asks about something unrelated, invokes `/atu:*` on a different problem, says "thanks"/"got it", or commits code that resolves the current topic.
 
-**If no active topic exists:** write `No active topic.` to the state file.
-
 ## Learning Plan Awareness
 
-If `.agent-tutor/learning-plan.md` exists, the student has a structured learning path.
+Use `get_plan` to check if a learning plan exists.
 
 **When a plan exists:**
-- The current plan step is the active topic in `.agent-tutor/current-topic.md`
-- When a step completes (lesson saved), mark it `[x]` in the plan file and update the progress count
+- Call `get_plan` to see the current step and progress
+- When a step completes (lesson saved), call `update_plan` to mark the step as `mastered`
 - Suggest the next step naturally: "Ready for step N? It covers <topic>."
 - Reference the plan when coaching — "This connects to step N of your plan."
 
 **When no plan exists:**
 - Coach normally without referencing a plan
 - If the student seems to be following a structured learning path, suggest creating one with `/atu:plan`
+- Use `create_plan` to set up the plan with `goal` and `steps` referencing topic IDs
+
+## Session Recovery
+
+After `/clear` or `/compact`, always call `restore_session` first. This returns:
+- `activeTopicId` — the topic the student was working on
+- `resumeContext` — description of what they were doing
+- `lastActivity` — when the last session was saved
+
+Use this to seamlessly continue coaching without the student needing to re-explain context.
+
+Before topic transitions or when coaching intensity changes, call `save_session` to snapshot the current state.
 
 ## Hook Awareness
 
@@ -124,4 +127,6 @@ Create the `./lessons/` directory if it does not exist.
     <Pitfalls to avoid>
 
 Do not duplicate — if a lesson file for the same topic already exists today, skip it.
+
+After saving a lesson file, call `update_topic` with `lessonFile` pointing to the saved file path.
 <!-- END AGENT-TUTOR -->
