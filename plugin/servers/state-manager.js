@@ -99,6 +99,17 @@ class StateManager {
     return state.topics[id] || null;
   }
 
+  async deleteTopic(id) {
+    const state = await this.readState();
+    const topic = state.topics[id];
+    if (!topic) {
+      throw new Error(`Topic "${id}" not found`);
+    }
+    delete state.topics[id];
+    await this.writeState(state);
+    return topic;
+  }
+
   async listTopics(status = null) {
     const state = await this.readState();
     let topics = Object.values(state.topics);
@@ -161,6 +172,17 @@ class StateManager {
   async getPlan() {
     const state = await this.readState();
     return state.plan;
+  }
+
+  async deletePlan() {
+    const state = await this.readState();
+    if (!state.plan) {
+      throw new Error('No plan exists.');
+    }
+    const plan = state.plan;
+    state.plan = null;
+    await this.writeState(state);
+    return plan;
   }
 
   async saveSession({ activeTopicId, resumeContext }) {

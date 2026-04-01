@@ -220,6 +220,23 @@ describe('StateManager', () => {
       assert.equal(list.length, 1);
       assert.equal(list[0].id, 'a');
     });
+
+    it('deleteTopic removes a topic', async () => {
+      await sm.createTopic({ id: 'a', title: 'A' });
+      await sm.createTopic({ id: 'b', title: 'B' });
+      const deleted = await sm.deleteTopic('a');
+      assert.equal(deleted.id, 'a');
+      const list = await sm.listTopics();
+      assert.equal(list.length, 1);
+      assert.equal(list[0].id, 'b');
+    });
+
+    it('deleteTopic rejects unknown topic', async () => {
+      await assert.rejects(
+        () => sm.deleteTopic('nope'),
+        /not found/
+      );
+    });
   });
 
   describe('getTopicGraph', () => {
@@ -299,6 +316,20 @@ describe('StateManager', () => {
       await sm.createPlan({ goal: 'G', steps: [{ topicId: 'x', order: 1 }] });
       const plan = await sm.getPlan();
       assert.equal(plan.goal, 'G');
+    });
+
+    it('deletePlan removes the plan', async () => {
+      await sm.createPlan({ goal: 'G', steps: [{ topicId: 'x', order: 1 }] });
+      const deleted = await sm.deletePlan();
+      assert.equal(deleted.goal, 'G');
+      assert.equal(await sm.getPlan(), null);
+    });
+
+    it('deletePlan rejects when no plan exists', async () => {
+      await assert.rejects(
+        () => sm.deletePlan(),
+        /No plan exists/
+      );
     });
   });
 

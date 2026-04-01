@@ -218,6 +218,19 @@ server.tool('list_topics',
   }
 );
 
+server.tool('delete_topic',
+  'Delete a learning topic by ID',
+  { id: z.string().describe('Topic ID to delete') },
+  async ({ id }) => {
+    try {
+      const topic = await stateManager.deleteTopic(id);
+      return { content: [{ type: 'text', text: `Deleted topic "${topic.title}".` }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  }
+);
+
 server.tool('get_topic_graph',
   'Get the topic dependency graph with nodes and edges',
   {},
@@ -273,6 +286,19 @@ server.tool('get_plan',
     const plan = await stateManager.getPlan();
     if (!plan) return { content: [{ type: 'text', text: 'No learning plan exists yet.' }] };
     return { content: [{ type: 'text', text: JSON.stringify(plan, null, 2) }] };
+  }
+);
+
+server.tool('delete_plan',
+  'Delete the current learning plan',
+  {},
+  async () => {
+    try {
+      const plan = await stateManager.deletePlan();
+      return { content: [{ type: 'text', text: `Deleted plan "${plan.goal}".` }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
   }
 );
 
