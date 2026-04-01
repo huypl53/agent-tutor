@@ -35,7 +35,6 @@ describe('StateManager', () => {
         status: 'introduced',
         complexity: null,
         dependencies: [],
-        subtopics: [],
         started: new Date().toISOString(),
         moments: [],
         lessonFile: null,
