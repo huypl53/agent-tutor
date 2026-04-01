@@ -130,7 +130,7 @@ Change intensity via MCP tool: the agent can call `set_coaching_intensity` with 
 
 Agent Tutor is a Claude Code plugin with three components:
 
-1. **MCP Server** (`plugin/servers/tutoring-mcp.js`) — Node.js server providing 16 tools over stdio: 5 observation tools (file changes, git activity, coaching config) and 11 learning state tools (topic CRUD, plans, sessions, summaries). Uses `chokidar` for file watching and a `StateManager` layer for atomic JSON state operations.
+1. **MCP Server** (`plugin/servers/tutoring-mcp.js`) — Node.js server providing 18 tools over stdio: 5 observation tools (file changes, git activity, coaching config) and 13 learning state tools (topic CRUD, plans, sessions, summaries). Uses `chokidar` for file watching and a `StateManager` layer for atomic JSON state operations.
 
 2. **Skills** (`plugin/skills/`) — 9 slash command skills and 4 teaching methodology skills with reference material.
 

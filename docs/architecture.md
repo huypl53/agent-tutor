@@ -42,7 +42,7 @@ agent-tutor/
 │   ├── hooks/
 │   │   └── hooks.json            # PostToolUse hook definitions
 │   ├── servers/
-│   │   ├── tutoring-mcp.js       # MCP server (16 tools, file watcher)
+│   │   ├── tutoring-mcp.js       # MCP server (18 tools, file watcher)
 │   │   └── state-manager.js      # StateManager (JSON state, topic state machine)
 │   └── skills/
 │       ├── atu-check/SKILL.md    # 9 slash command skills
@@ -67,7 +67,7 @@ agent-tutor/
 
 ### MCP Server (`plugin/servers/tutoring-mcp.js`)
 
-Node.js MCP server using `@modelcontextprotocol/sdk` over stdio transport. Provides 16 tools across three domains:
+Node.js MCP server using `@modelcontextprotocol/sdk` over stdio transport. Provides 18 tools across three domains:
 
 **Observation tools (5):**
 
@@ -79,7 +79,7 @@ Node.js MCP server using `@modelcontextprotocol/sdk` over stdio transport. Provi
 | `get_coaching_config` | none | Current intensity and student level |
 | `set_coaching_intensity` | `intensity` (enum) | Set to proactive, on-demand, or silent |
 
-**Learning state tools (11) — thin shells over StateManager:**
+**Learning state tools (13) — thin shells over StateManager:**
 
 | Tool | Input | Description |
 |------|-------|-------------|
@@ -94,6 +94,8 @@ Node.js MCP server using `@modelcontextprotocol/sdk` over stdio transport. Provi
 | `save_session` | `activeTopicId`, `resumeContext` | Save session for recovery |
 | `restore_session` | none | Restore last saved session |
 | `get_learning_summary` | none | Aggregate summary of all learning state |
+| `delete_topic` | `id` | Delete a learning topic |
+| `delete_plan` | none | Delete the current learning plan |
 
 ### StateManager (`plugin/servers/state-manager.js`)
 
@@ -124,6 +126,8 @@ introduced → practicing → struggling → breakthrough → mastered
 Valid transitions: `introduced→practicing`, `practicing→{struggling,breakthrough,mastered}`, `struggling→{practicing,breakthrough}`, `breakthrough→{mastered,practicing}`, `mastered→∅` (terminal).
 
 **Atomic writes:** Uses write-to-temp + rename pattern to prevent corruption.
+
+**Plan overwrite guard:** `createPlan` throws if a plan already exists unless `force: true` is passed.
 
 **Auto-migration:** On first load, if `state.json` doesn't exist but `current-topic.md` or `learning-plan.md` do, parses them into the JSON schema and renames originals to `.bak`.
 
