@@ -153,3 +153,15 @@ Student activity
 6. **Instruction-driven features** — Topic tracking, learning plans, and lesson auto-save are all driven by instructions in CLAUDE.md rather than MCP tools. The agent's file writing capability handles all I/O.
 
 7. **Sentinel-based injection** — `<!-- BEGIN/END AGENT-TUTOR -->` markers enable idempotent install/uninstall of the instruction block.
+
+## Distribution
+
+Three install channels:
+
+1. **Claude Code marketplace** — `claude plugin marketplace add github:huypl53/agent-tutor` then `claude plugin install agent-tutor`. Plugin auto-starts MCP server, loads skills, registers hooks.
+
+2. **npm** — `npm install -g @huypl53/agent-tutor`. Use via `claude --plugin-dir $(agent-tutor plugin-dir)` or `agent-tutor install` to inject CLAUDE.md instructions.
+
+3. **Codex CLI** — `npx @huypl53/agent-tutor install --agent codex` injects AGENTS.md. MCP server added manually via `codex mcp add`.
+
+The marketplace manifest (`.claude-plugin/marketplace.json`) at repo root points to `plugin/` as a `git-subdir` source. This lets Claude Code install directly from the GitHub repo without npm.
