@@ -8,6 +8,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const chokidar = require('chokidar');
+const { StateManager, TOPIC_STATUSES } = require('./state-manager');
 
 // --- Config ---
 
@@ -146,6 +147,163 @@ server.tool('set_coaching_intensity',
     cfg.intensity = intensity;
     saveConfig(cfg);
     return { content: [{ type: 'text', text: `Coaching intensity set to: ${intensity}` }] };
+  }
+);
+
+// --- Learning State ---
+
+const stateManager = new StateManager(process.cwd());
+
+// Run migration on startup
+stateManager.migrateIfNeeded().catch(err => {
+  console.error('Migration error:', err);
+});
+
+server.tool('create_topic',
+  'Register a new learning topic the student is working on',
+  {
+    id: z.string().describe('URL-safe identifier for the topic (e.g. "async-await")'),
+    title: z.string().describe('Human-readable topic title'),
+    complexity: z.number().min(1).max(10).optional().describe('Estimated complexity 1-10'),
+    dependencies: z.array(z.string()).optional().describe('IDs of prerequisite topics'),
+  },
+  async ({ id, title, complexity, dependencies }) => {
+    try {
+      const topic = await stateManager.createTopic({ id, title, complexity, dependencies });
+      return { content: [{ type: 'text', text: JSON.stringify(topic, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  }
+);
+
+server.tool('update_topic',
+  'Update a learning topic: change status, add a moment, set complexity, or link a lesson',
+  {
+    id: z.string().describe('Topic ID to update'),
+    status: z.enum(['introduced', 'practicing', 'struggling', 'breakthrough', 'mastered']).optional().describe('New status (must be a valid transition)'),
+    moment: z.object({
+      type: z.enum(['struggle', 'hint', 'breakthrough', 'practice']),
+      detail: z.string(),
+    }).optional().describe('A learning moment to record'),
+    complexity: z.number().min(1).max(10).optional().describe('Updated complexity estimate'),
+    lessonFile: z.string().optional().describe('Path to the saved lesson file'),
+  },
+  async ({ id, status, moment, complexity, lessonFile }) => {
+    try {
+      const topic = await stateManager.updateTopic(id, { status, moment, complexity, lessonFile });
+      return { content: [{ type: 'text', text: JSON.stringify(topic, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  }
+);
+
+server.tool('get_topic',
+  'Get full details of a learning topic',
+  { id: z.string().describe('Topic ID') },
+  async ({ id }) => {
+    const topic = await stateManager.getTopic(id);
+    if (!topic) return { content: [{ type: 'text', text: `Topic "${id}" not found.` }] };
+    return { content: [{ type: 'text', text: JSON.stringify(topic, null, 2) }] };
+  }
+);
+
+server.tool('list_topics',
+  'List all learning topics, optionally filtered by status',
+  { status: z.enum(['introduced', 'practicing', 'struggling', 'breakthrough', 'mastered']).optional().describe('Filter by status') },
+  async ({ status }) => {
+    const topics = await stateManager.listTopics(status);
+    return { content: [{ type: 'text', text: JSON.stringify(topics, null, 2) }] };
+  }
+);
+
+server.tool('get_topic_graph',
+  'Get the topic dependency graph with nodes and edges',
+  {},
+  async () => {
+    const graph = await stateManager.getTopicGraph();
+    return { content: [{ type: 'text', text: JSON.stringify(graph, null, 2) }] };
+  }
+);
+
+server.tool('create_plan',
+  'Create a structured learning plan with ordered steps',
+  {
+    goal: z.string().describe('The learning goal'),
+    steps: z.array(z.object({
+      topicId: z.string(),
+      order: z.number(),
+    })).describe('Ordered steps referencing topic IDs'),
+  },
+  async ({ goal, steps }) => {
+    try {
+      const plan = await stateManager.createPlan({ goal, steps });
+      return { content: [{ type: 'text', text: JSON.stringify(plan, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  }
+);
+
+server.tool('update_plan',
+  'Update learning plan: mark steps completed, add steps',
+  {
+    stepUpdates: z.array(z.object({
+      topicId: z.string(),
+      status: z.enum(['pending', 'active', 'mastered', 'skipped']).optional(),
+      order: z.number().optional(),
+      action: z.enum(['add']).optional().describe('Set to "add" to add a new step'),
+    })).describe('Array of step updates'),
+  },
+  async ({ stepUpdates }) => {
+    try {
+      const plan = await stateManager.updatePlan(stepUpdates);
+      return { content: [{ type: 'text', text: JSON.stringify(plan, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  }
+);
+
+server.tool('get_plan',
+  'Get the current learning plan with progress',
+  {},
+  async () => {
+    const plan = await stateManager.getPlan();
+    if (!plan) return { content: [{ type: 'text', text: 'No learning plan exists yet.' }] };
+    return { content: [{ type: 'text', text: JSON.stringify(plan, null, 2) }] };
+  }
+);
+
+server.tool('save_session',
+  'Save current session context for recovery after /clear or /compact',
+  {
+    activeTopicId: z.string().describe('The currently active topic ID'),
+    resumeContext: z.string().describe('Description of what the student was doing'),
+  },
+  async ({ activeTopicId, resumeContext }) => {
+    const session = await stateManager.saveSession({ activeTopicId, resumeContext });
+    return { content: [{ type: 'text', text: JSON.stringify(session, null, 2) }] };
+  }
+);
+
+server.tool('restore_session',
+  'Restore the last saved session context',
+  {},
+  async () => {
+    const session = await stateManager.restoreSession();
+    if (!session) return { content: [{ type: 'text', text: 'No saved session found.' }] };
+    return { content: [{ type: 'text', text: JSON.stringify(session, null, 2) }] };
+  }
+);
+
+server.tool('get_learning_summary',
+  'Get an aggregate learning summary: topics by status, plan progress, recent moments',
+  {},
+  async () => {
+    const summary = await stateManager.getLearningSummary();
+    return { content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }] };
   }
 );
 
