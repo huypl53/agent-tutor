@@ -9,6 +9,7 @@ Review the student's recent work by gathering all available context, then provid
 2. Call `get_recent_file_changes` to see what code was written or modified
 3. Call `get_git_activity` to see commits and working tree status
 4. Call `get_coaching_config` to check the student's level
+5. Call `get_learning_summary` to see topic progress and recent moments
 
 Based on all gathered context, provide coaching feedback:
 - Point out what the student did well
@@ -16,3 +17,7 @@ Based on all gathered context, provide coaching feedback:
 - If there are errors, explain why they happened and how to fix them
 - If the code works but could be improved, explain the idiomatic approach
 - Tailor your language to the student's level (beginner vs experienced)
+
+**After providing feedback, ALWAYS:**
+- Call `update_topic` on the active topic with `moment: { type: "practice", detail: "<summary of what student practiced>" }`
+- If the student showed improvement, update status accordingly

@@ -7,6 +7,7 @@ Explain what just happened in the student's terminal.
 
 1. Call `get_student_context` to see recent activity and any errors
 2. Call `get_coaching_config` to check the student's level
+3. Call `restore_session` to know what topic the student is working on
 
 Find the most recent error or notable output and explain it:
 - What the error means in plain language
@@ -16,3 +17,7 @@ Find the most recent error or notable output and explain it:
 - For experienced devs: focus on the specific fix and any non-obvious gotchas
 
 If there are no errors in the recent output, explain what the last command did and whether the output looks correct.
+
+**After explaining, ALWAYS:**
+- Call `update_topic` on the active topic with `moment: { type: "hint", detail: "<what you explained>" }`
+- If the error reflects student confusion, also record `moment: { type: "struggle", detail: "<what confused them>" }`
