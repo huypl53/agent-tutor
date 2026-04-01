@@ -1,8 +1,22 @@
 {
-  "name": "agent-tutor",
+  "name": "@huypl53/agent-tutor",
   "version": "0.2.0",
   "description": "Programming tutor plugin for coding agents (Claude Code, Codex CLI)",
   "license": "MIT",
+  "author": "huypl53",
+  "homepage": "https://github.com/huypl53/agent-tutor",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/huypl53/agent-tutor.git"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "programming-tutor",
+    "mcp",
+    "coding-agent",
+    "plugin"
+  ],
   "bin": {
     "agent-tutor": "./bin/cli.js"
   },
@@ -13,6 +27,9 @@
     "CLAUDE.md",
     "AGENTS.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "chokidar": "^4.0.3",

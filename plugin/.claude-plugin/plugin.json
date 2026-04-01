@@ -2,11 +2,17 @@
   "name": "agent-tutor",
   "version": "0.2.0",
   "description": "Programming tutor plugin for coding agents",
+  "author": {
+    "name": "huypl53",
+    "url": "https://github.com/huypl53"
+  },
+  "homepage": "https://github.com/huypl53/agent-tutor",
   "mcpServers": {
     "agent-tutor": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/tutoring-mcp.js"]
     }
   },
-  "hooks": "./hooks/hooks.json"
+  "hooks": "./hooks/hooks.json",
+  "skills": "./skills/"
 }

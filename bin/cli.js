@@ -63,7 +63,7 @@ function getPluginDir() {
 
 program
   .name('agent-tutor')
-  .version('0.2.0')
+  .version(require('../package.json').version)
   .description('Programming tutor plugin for coding agents');
 
 program
