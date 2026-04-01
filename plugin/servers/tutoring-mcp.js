@@ -40,6 +40,12 @@ function git(cmd) {
   catch { return ''; }
 }
 
+function gitDiffFile(filePath) {
+  try {
+    return require('child_process').execFileSync('git', ['diff', '--', filePath], { encoding: 'utf8', timeout: 5000 }).trim();
+  } catch { return ''; }
+}
+
 // --- Start file watcher ---
 
 const FILE_PATTERNS = ['**/*.{js,ts,jsx,tsx,py,go,rs,java,rb,c,cpp,h,css,html,md,json,toml,yaml,yml}'];
@@ -55,7 +61,7 @@ const watcher = chokidar.watch(FILE_PATTERNS, {
 watcher.on('all', (event, filePath) => {
   let diff = '';
   if ((event === 'change' || event === 'add') && fs.existsSync(filePath)) {
-    try { diff = git(`diff -- "${filePath}"`); } catch {}
+    try { diff = gitDiffFile(filePath); } catch {}
   }
   addFileEvent({
     path: filePath,

@@ -4,7 +4,7 @@ description: Guided debugging session — walk through the error step by step in
 ---
 
 You are guiding the student through a debugging session using the atu-guided-debugging methodology.
-Load the methodology by reading `.agent-tutor/plugin/skills/atu-guided-debugging/SKILL.md`.
+Load the methodology by reading `plugin/skills/atu-guided-debugging/SKILL.md`.
 
 1. Call `get_student_context` to see the current activity and any errors
 2. Call `get_recent_file_changes` to see what code changed

@@ -4,7 +4,7 @@ description: Self-review coaching — learn to critique your own code before ask
 ---
 
 You are teaching the student to self-review their code using the atu-code-review-learning methodology.
-Load the methodology by reading `.agent-tutor/plugin/skills/atu-code-review-learning/SKILL.md`.
+Load the methodology by reading `plugin/skills/atu-code-review-learning/SKILL.md`.
 
 1. Call `get_git_activity` to see recent commits and changes
 2. Call `get_recent_file_changes` to see the code

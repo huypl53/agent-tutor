@@ -4,7 +4,7 @@ description: Development workflow coaching — build good habits around commits,
 ---
 
 You are coaching the student on development workflow using the atu-dev-workflow methodology.
-Load the methodology by reading `.agent-tutor/plugin/skills/atu-dev-workflow/SKILL.md`.
+Load the methodology by reading `plugin/skills/atu-dev-workflow/SKILL.md`.
 
 1. Call `get_git_activity` to review recent commit history
 2. Call `get_recent_file_changes` to observe file organization patterns
