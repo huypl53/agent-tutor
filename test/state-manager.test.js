@@ -338,4 +338,75 @@ describe('StateManager', () => {
       assert.equal(summary.recentMoments.length, 0);
     });
   });
+
+  describe('migration', () => {
+    it('migrates current-topic.md on first load', async () => {
+      const atuDir = path.join(tmpDir, '.agent-tutor');
+      fs.mkdirSync(atuDir, { recursive: true });
+      fs.writeFileSync(path.join(atuDir, 'current-topic.md'), [
+        '# Current Topic',
+        '',
+        '**Topic:** JavaScript Promises',
+        '**Started:** 2026-03-30T10:00:00Z',
+        '',
+        '## Moments',
+        '- struggle: confused about .then chaining',
+        '- hint: showed diagram of promise states',
+      ].join('\n'));
+
+      await sm.migrateIfNeeded();
+      const state = await sm.readState();
+
+      assert.ok(state.topics['javascript-promises']);
+      assert.equal(state.topics['javascript-promises'].title, 'JavaScript Promises');
+      assert.equal(state.topics['javascript-promises'].status, 'introduced');
+      assert.equal(state.topics['javascript-promises'].moments.length, 2);
+      assert.ok(fs.existsSync(path.join(atuDir, 'current-topic.md.bak')));
+      assert.equal(fs.existsSync(path.join(atuDir, 'current-topic.md')), false);
+    });
+
+    it('migrates learning-plan.md on first load', async () => {
+      const atuDir = path.join(tmpDir, '.agent-tutor');
+      fs.mkdirSync(atuDir, { recursive: true });
+      fs.writeFileSync(path.join(atuDir, 'learning-plan.md'), [
+        '# Learning Plan: Master Async JS',
+        '',
+        '**Progress:** 1/3 complete',
+        '',
+        '## Steps',
+        '- [x] 1. **Callbacks** — understand callback patterns',
+        '- [ ] 2. **Promises** — learn promise API',
+        '- [ ] 3. **Async/Await** — modern async syntax',
+      ].join('\n'));
+
+      await sm.migrateIfNeeded();
+      const state = await sm.readState();
+
+      assert.equal(state.plan.goal, 'Master Async JS');
+      assert.equal(state.plan.steps.length, 3);
+      assert.equal(state.plan.steps[0].status, 'mastered');
+      assert.equal(state.plan.steps[1].status, 'pending');
+      assert.deepEqual(state.plan.progress, { completed: 1, total: 3 });
+      assert.ok(fs.existsSync(path.join(atuDir, 'learning-plan.md.bak')));
+    });
+
+    it('skips migration if state.json already exists', async () => {
+      const atuDir = path.join(tmpDir, '.agent-tutor');
+      fs.mkdirSync(atuDir, { recursive: true });
+      fs.writeFileSync(path.join(atuDir, 'state.json'), JSON.stringify({ version: 1, topics: {}, plan: null, session: null }));
+      fs.writeFileSync(path.join(atuDir, 'current-topic.md'), '# Current Topic\n**Topic:** X\n**Started:** 2026-01-01T00:00:00Z');
+
+      await sm.migrateIfNeeded();
+      const state = await sm.readState();
+      assert.deepEqual(state.topics, {});
+      // original file NOT renamed — migration was skipped
+      assert.ok(fs.existsSync(path.join(atuDir, 'current-topic.md')));
+    });
+
+    it('handles missing markdown files gracefully', async () => {
+      await sm.migrateIfNeeded();
+      const state = await sm.readState();
+      assert.deepEqual(state.topics, {});
+    });
+  });
 });
