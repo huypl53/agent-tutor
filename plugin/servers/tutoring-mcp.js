@@ -1,0 +1,156 @@
+#!/usr/bin/env node
+'use strict';
+
+const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
+const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
+const { z } = require('zod');
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const chokidar = require('chokidar');
+
+// --- Config ---
+
+const CONFIG_PATH = '.agent-tutor/config.json';
+const DEFAULT_CONFIG = { intensity: 'on-demand', level: 'auto' };
+
+function loadConfig() {
+  try {
+    return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) };
+  } catch { return { ...DEFAULT_CONFIG }; }
+}
+
+function saveConfig(cfg) {
+  fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n');
+}
+
+// --- File watcher ring buffer ---
+
+const MAX_FILE_EVENTS = 100;
+const fileEvents = [];
+
+function addFileEvent(evt) {
+  fileEvents.push(evt);
+  if (fileEvents.length > MAX_FILE_EVENTS) fileEvents.shift();
+}
+
+function git(cmd) {
+  try { return execSync(`git ${cmd}`, { encoding: 'utf8', timeout: 5000 }).trim(); }
+  catch { return ''; }
+}
+
+// --- Start file watcher ---
+
+const FILE_PATTERNS = ['**/*.{js,ts,jsx,tsx,py,go,rs,java,rb,c,cpp,h,css,html,md,json,toml,yaml,yml}'];
+const IGNORE_PATTERNS = ['**/node_modules/**', '**/.git/**', '**/vendor/**', '**/target/**', '**/.agent-tutor/**'];
+
+const watcher = chokidar.watch(FILE_PATTERNS, {
+  ignored: IGNORE_PATTERNS,
+  persistent: true,
+  ignoreInitial: true,
+  awaitWriteFinish: { stabilityThreshold: 300 },
+});
+
+watcher.on('all', (event, filePath) => {
+  let diff = '';
+  if ((event === 'change' || event === 'add') && fs.existsSync(filePath)) {
+    try { diff = git(`diff -- "${filePath}"`); } catch {}
+  }
+  addFileEvent({
+    path: filePath,
+    change: event === 'add' ? 'create' : event === 'unlink' ? 'delete' : 'modify',
+    diff: diff.slice(0, 500),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// --- MCP Server ---
+
+const server = new McpServer({
+  name: 'agent-tutor',
+  version: '0.2.0',
+});
+
+server.tool('get_student_context',
+  'Get a summary of recent student activity including file changes and git operations',
+  {},
+  async () => {
+    const recentFiles = fileEvents.slice(-20).map(e =>
+      `- **${e.change}** \`${e.path}\``
+    ).join('\n');
+
+    const gitLog = git('log --oneline -10');
+    const gitStatus = git('status --porcelain');
+    const gitDiff = git('diff --stat');
+
+    let summary = '';
+    if (recentFiles) summary += `## File Changes\n\n${recentFiles}\n\n`;
+    if (gitDiff) summary += `## Uncommitted Changes\n\n\`\`\`\n${gitDiff}\n\`\`\`\n\n`;
+    if (gitLog) summary += `## Recent Commits\n\n\`\`\`\n${gitLog}\n\`\`\`\n\n`;
+    if (gitStatus) summary += `## Working Tree\n\n\`\`\`\n${gitStatus}\n\`\`\`\n`;
+
+    return { content: [{ type: 'text', text: summary || 'No recent activity.' }] };
+  }
+);
+
+server.tool('get_recent_file_changes',
+  'Get recent file changes with diffs',
+  {},
+  async () => {
+    if (fileEvents.length === 0) {
+      return { content: [{ type: 'text', text: 'No recent file changes.' }] };
+    }
+    const lines = fileEvents.slice(-30).map(e => {
+      let s = `- ${e.change}: ${e.path}`;
+      if (e.diff) s += `\n  \`\`\`\n  ${e.diff.slice(0, 200)}\n  \`\`\``;
+      return s;
+    });
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
+  }
+);
+
+server.tool('get_git_activity',
+  'Get recent git activity including commits and status changes',
+  {},
+  async () => {
+    const log = git('log --oneline -10');
+    const status = git('status --porcelain');
+    let text = '';
+    if (log) text += `## Recent Commits\n\n\`\`\`\n${log}\n\`\`\`\n\n`;
+    if (status) text += `## Working Tree Status\n\n\`\`\`\n${status}\n\`\`\`\n`;
+    return { content: [{ type: 'text', text: text || 'No recent git activity.' }] };
+  }
+);
+
+server.tool('get_coaching_config',
+  'Get the current coaching configuration (intensity and level)',
+  {},
+  async () => {
+    const cfg = loadConfig();
+    return { content: [{ type: 'text', text: `intensity: ${cfg.intensity}\nlevel: ${cfg.level}` }] };
+  }
+);
+
+server.tool('set_coaching_intensity',
+  'Set the coaching intensity level',
+  { intensity: z.enum(['proactive', 'on-demand', 'silent']).describe('The coaching intensity level') },
+  async ({ intensity }) => {
+    const cfg = loadConfig();
+    cfg.intensity = intensity;
+    saveConfig(cfg);
+    return { content: [{ type: 'text', text: `Coaching intensity set to: ${intensity}` }] };
+  }
+);
+
+// --- Start ---
+
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+main().catch(err => {
+  console.error('MCP server error:', err);
+  process.exit(1);
+});
