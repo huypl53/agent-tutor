@@ -136,4 +136,4 @@ Agent Tutor is a Claude Code plugin with three components:
 
 3. **Hooks** (`plugin/hooks/hooks.json`) — PostToolUse advisory hooks that detect large files and error patterns, suggesting relevant coaching commands.
 
-The CLI (`bin/cli.js`) handles install/uninstall of tutor instructions into CLAUDE.md or AGENTS.md.
+The CLI (`bin/cli.js`) handles install/uninstall of tutor instructions (from `plugin/templates/tutor-instructions.md`) into the student project's CLAUDE.md or AGENTS.md.
