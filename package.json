@@ -24,8 +24,7 @@
     "bin/",
     "plugin/",
     "scripts/",
-    "CLAUDE.md",
-    "AGENTS.md"
+    "CLAUDE.md"
   ],
   "publishConfig": {
     "access": "public"

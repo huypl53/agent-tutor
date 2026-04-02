@@ -34,11 +34,12 @@
 agent-tutor/
 ├── bin/cli.js                    # CLI installer (install/uninstall/plugin-dir)
 ├── package.json                  # npm package manifest
-├── CLAUDE.md                     # Tutor instructions (injected into projects)
-├── AGENTS.md                     # Same instructions for Codex CLI
+├── CLAUDE.md                     # Dev instructions for contributors
 ├── plugin/
 │   ├── .claude-plugin/
 │   │   └── plugin.json           # Plugin manifest (MCP server, hooks)
+│   ├── templates/
+│   │   └── tutor-instructions.md # Tutor persona (injected into student projects)
 │   ├── hooks/
 │   │   └── hooks.json            # PostToolUse hook definitions
 │   ├── servers/
@@ -141,7 +142,7 @@ Valid transitions: `introduced→practicing`, `practicing→{struggling,breakthr
 
 Commander-based CLI with three commands:
 
-- **`install`** — Reads `CLAUDE.md` from the package, injects it into the target file wrapped in `<!-- BEGIN AGENT-TUTOR -->` / `<!-- END AGENT-TUTOR -->` sentinels. Idempotent (replaces existing section). Supports `--scope local|global` and `--agent claude|codex`.
+- **`install`** — Reads `plugin/templates/tutor-instructions.md` from the package, injects it into the target file wrapped in `<!-- BEGIN AGENT-TUTOR -->` / `<!-- END AGENT-TUTOR -->` sentinels. Idempotent (replaces existing section). Supports `--scope local|global` and `--agent claude|codex`.
 - **`uninstall`** — Removes the sentinel-wrapped section from the target file.
 - **`plugin-dir`** — Prints the absolute path to the `plugin/` directory (for `--plugin-dir` flag).
 
@@ -171,9 +172,9 @@ PostToolUse advisory hooks that inject `additionalContext`:
 - **`large-file-detect.js`** — After Write/Edit, checks if the file exceeds 200 lines. Suggests `/atu:decompose`.
 - **`error-pattern-detect.js`** — After Bash, checks for error patterns (panic, FAIL, traceback, etc.). Suggests `/atu:debug` or `/atu:explain`.
 
-### Instruction Files (`CLAUDE.md`, `AGENTS.md`)
+### Tutor Instructions (`plugin/templates/tutor-instructions.md`)
 
-The tutor instruction block injected into projects. Contains:
+The tutor persona template injected into student projects via `agent-tutor install`. The root `CLAUDE.md` is dev-only instructions for contributors. Contains:
 - Commands table and teaching skills mapping
 - Coaching behavior rules (proactive/on-demand/silent)
 - Pedagogical principles (ask-before-tell, one-point-per-interaction, praise-first)
@@ -222,6 +223,6 @@ Three install channels:
 
 2. **npm** — `npm install -g @huypl53/agent-tutor`. Use via `claude --plugin-dir $(agent-tutor plugin-dir)` or `agent-tutor install` to inject CLAUDE.md instructions.
 
-3. **Codex CLI** — `npx @huypl53/agent-tutor install --agent codex` injects AGENTS.md. MCP server added manually via `codex mcp add`.
+3. **Codex CLI** — `npx @huypl53/agent-tutor install --agent codex` injects tutor instructions into AGENTS.md. MCP server added manually via `codex mcp add`.
 
 The marketplace manifest (`.claude-plugin/marketplace.json`) at repo root points to `plugin/` as a `git-subdir` source. This lets Claude Code install directly from the GitHub repo without npm.

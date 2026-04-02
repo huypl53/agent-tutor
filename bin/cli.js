@@ -9,7 +9,7 @@ const BEGIN = '<!-- BEGIN AGENT-TUTOR -->';
 const END = '<!-- END AGENT-TUTOR -->';
 
 function getInstructionsContent() {
-  const mdPath = path.join(__dirname, '..', 'CLAUDE.md');
+  const mdPath = path.join(__dirname, '..', 'plugin', 'templates', 'tutor-instructions.md');
   return fs.readFileSync(mdPath, 'utf8');
 }
 
