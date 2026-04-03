@@ -132,7 +132,7 @@ class ProjectScanner {
           if (name) allDeps.push(name);
         });
       }
-      const singleReq = gomod.match(/^require\s+(\S+)/gm);
+      const singleReq = gomod.match(/^require\s+(?!\()(\S+)/gm);
       if (singleReq) {
         singleReq.forEach(r => allDeps.push(r.replace(/^require\s+/, '')));
       }
@@ -202,7 +202,7 @@ class ProjectScanner {
         });
       }
       // Single-line requires
-      for (const m of gomod.matchAll(/^require\s+(\S+)\s+(\S+)/gm)) {
+      for (const m of gomod.matchAll(/^require\s+(?!\()(\S+)\s+(\S+)/gm)) {
         deps[m[1]] = m[2];
       }
       return {

@@ -53,7 +53,6 @@ After the sub-agent completes:
    - Start with the big picture: "This module does X"
    - Ask comprehension questions: "Looking at the dependency graph, why do you think Y depends on Z?"
    - Highlight non-obvious patterns: "Notice how they use X here — that's because..."
-3. Update the project profile's `deepDives` array
-4. Offer to create a topic for concepts discovered: "Want me to track your learning on [pattern/concept]?"
+3. Offer to create a topic for concepts discovered: "Want me to track your learning on [pattern/concept]?"
 
 ARGUMENTS: $ARGUMENTS

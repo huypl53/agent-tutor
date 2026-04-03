@@ -356,10 +356,14 @@ server.tool('get_project_profile',
   'Get the stored project profile and list of analysis docs',
   {},
   async () => {
-    const profile = await stateManager.getProjectProfile();
-    if (!profile) return { content: [{ type: 'text', text: 'No project profile. Run scan_project first.' }] };
-    const docs = await stateManager.listProjectDocs();
-    return { content: [{ type: 'text', text: JSON.stringify({ ...profile, availableDocs: docs }, null, 2) }] };
+    try {
+      const profile = await stateManager.getProjectProfile();
+      if (!profile) return { content: [{ type: 'text', text: 'No project profile. Run scan_project first.' }] };
+      const docs = await stateManager.listProjectDocs();
+      return { content: [{ type: 'text', text: JSON.stringify({ ...profile, availableDocs: docs }, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
   }
 );
 

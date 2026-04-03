@@ -249,7 +249,12 @@ class StateManager {
     const docsDir = path.join(this._dir, 'docs');
     fs.mkdirSync(docsDir, { recursive: true });
     const filePath = path.join(docsDir, `${name}.md`);
-    fs.writeFileSync(filePath, content);
+    if (!filePath.startsWith(docsDir)) {
+      throw new Error(`Invalid doc name: ${name}`);
+    }
+    const tmp = filePath + '.tmp';
+    fs.writeFileSync(tmp, content);
+    fs.renameSync(tmp, filePath);
 
     const state = await this.readState();
     if (!state.project) {
@@ -263,7 +268,11 @@ class StateManager {
   }
 
   async getProjectDoc(name) {
-    const filePath = path.join(this._dir, 'docs', `${name}.md`);
+    const docsDir = path.join(this._dir, 'docs');
+    const filePath = path.join(docsDir, `${name}.md`);
+    if (!filePath.startsWith(docsDir)) {
+      throw new Error(`Invalid doc name: ${name}`);
+    }
     try {
       return fs.readFileSync(filePath, 'utf8');
     } catch {
