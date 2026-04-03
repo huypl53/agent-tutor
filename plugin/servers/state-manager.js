@@ -14,10 +14,11 @@ const VALID_TRANSITIONS = {
 const TOPIC_STATUSES = Object.keys(VALID_TRANSITIONS);
 
 const EMPTY_STATE = {
-  version: 1,
+  version: 2,
   topics: {},
   plan: null,
   session: null,
+  project: null,
 };
 
 class StateManager {
@@ -29,7 +30,13 @@ class StateManager {
   async readState() {
     try {
       const raw = fs.readFileSync(this._file, 'utf8');
-      return JSON.parse(raw);
+      const state = JSON.parse(raw);
+      if (state.version === 1) {
+        state.version = 2;
+        state.project = state.project || null;
+        await this.writeState(state);
+      }
+      return state;
     } catch (err) {
       if (err.code === 'ENOENT') {
         return JSON.parse(JSON.stringify(EMPTY_STATE));
@@ -224,6 +231,49 @@ class StateManager {
       recentMoments: allMoments,
       activeSession: state.session,
     };
+  }
+
+  async saveProjectProfile(profile) {
+    const state = await this.readState();
+    state.project = { ...profile, docs: state.project?.docs || [], deepDives: state.project?.deepDives || [] };
+    await this.writeState(state);
+    return state.project;
+  }
+
+  async getProjectProfile() {
+    const state = await this.readState();
+    return state.project;
+  }
+
+  async saveProjectDoc(name, content) {
+    const docsDir = path.join(this._dir, 'docs');
+    fs.mkdirSync(docsDir, { recursive: true });
+    const filePath = path.join(docsDir, `${name}.md`);
+    fs.writeFileSync(filePath, content);
+
+    const state = await this.readState();
+    if (!state.project) {
+      state.project = { docs: [], deepDives: [] };
+    }
+    if (!state.project.docs.includes(name)) {
+      state.project.docs.push(name);
+    }
+    await this.writeState(state);
+    return filePath;
+  }
+
+  async getProjectDoc(name) {
+    const filePath = path.join(this._dir, 'docs', `${name}.md`);
+    try {
+      return fs.readFileSync(filePath, 'utf8');
+    } catch {
+      return null;
+    }
+  }
+
+  async listProjectDocs() {
+    const state = await this.readState();
+    return state.project?.docs || [];
   }
 
   async migrateIfNeeded() {

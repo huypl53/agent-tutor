@@ -21,7 +21,7 @@ describe('StateManager', () => {
   describe('readState / writeState', () => {
     it('returns empty state when no file exists', async () => {
       const state = await sm.readState();
-      assert.equal(state.version, 1);
+      assert.equal(state.version, 2);
       assert.deepEqual(state.topics, {});
       assert.equal(state.plan, null);
       assert.equal(state.session, null);
@@ -58,7 +58,7 @@ describe('StateManager', () => {
       assert.equal(fs.existsSync(path.join(tmpDir, '.agent-tutor')), false);
 
       // writeState creates it
-      await sm.writeState({ version: 1, topics: {}, plan: null, session: null });
+      await sm.writeState({ version: 2, topics: {}, plan: null, session: null, project: null });
       assert.ok(fs.existsSync(path.join(tmpDir, '.agent-tutor', 'state.json')));
     });
   });
@@ -438,7 +438,7 @@ describe('StateManager', () => {
     it('skips migration if state.json already exists', async () => {
       const atuDir = path.join(tmpDir, '.agent-tutor');
       fs.mkdirSync(atuDir, { recursive: true });
-      fs.writeFileSync(path.join(atuDir, 'state.json'), JSON.stringify({ version: 1, topics: {}, plan: null, session: null }));
+      fs.writeFileSync(path.join(atuDir, 'state.json'), JSON.stringify({ version: 2, topics: {}, plan: null, session: null, project: null }));
       fs.writeFileSync(path.join(atuDir, 'current-topic.md'), '# Current Topic\n**Topic:** X\n**Started:** 2026-01-01T00:00:00Z');
 
       await sm.migrateIfNeeded();
@@ -472,6 +472,59 @@ describe('StateManager', () => {
       await sm.migrateIfNeeded();
       const state = await sm.readState();
       assert.deepEqual(state.topics, {});
+    });
+  });
+
+  describe('project profile', () => {
+    it('auto-migrates v1 state to v2 on read', async () => {
+      const atuDir = path.join(tmpDir, '.agent-tutor');
+      fs.mkdirSync(atuDir, { recursive: true });
+      fs.writeFileSync(path.join(atuDir, 'state.json'), JSON.stringify({
+        version: 1,
+        topics: { a: { id: 'a', title: 'A', status: 'introduced', complexity: null, dependencies: [], started: '2026-01-01', moments: [], lessonFile: null } },
+        plan: null,
+        session: null,
+      }));
+      const state = await sm.readState();
+      assert.equal(state.version, 2);
+      assert.equal(state.project, null);
+      // existing data preserved
+      assert.equal(state.topics.a.title, 'A');
+    });
+
+    it('saveProjectProfile stores and getProjectProfile retrieves', async () => {
+      const profile = { projectType: 'backend-api', stack: { language: 'Python' }, scannedAt: '2026-04-03T00:00:00Z' };
+      await sm.saveProjectProfile(profile);
+      const loaded = await sm.getProjectProfile();
+      assert.equal(loaded.projectType, 'backend-api');
+      assert.equal(loaded.stack.language, 'Python');
+    });
+
+    it('getProjectProfile returns null when no profile exists', async () => {
+      const profile = await sm.getProjectProfile();
+      assert.equal(profile, null);
+    });
+
+    it('saveProjectDoc writes file and updates state', async () => {
+      await sm.saveProjectDoc('architecture', '# Architecture\n\nMVC pattern.');
+      const docPath = path.join(tmpDir, '.agent-tutor', 'docs', 'architecture.md');
+      assert.ok(fs.existsSync(docPath));
+      assert.equal(fs.readFileSync(docPath, 'utf8'), '# Architecture\n\nMVC pattern.');
+      const state = await sm.readState();
+      assert.ok(state.project.docs.includes('architecture'));
+    });
+
+    it('getProjectDoc returns doc content or null', async () => {
+      assert.equal(await sm.getProjectDoc('nope'), null);
+      await sm.saveProjectDoc('api', '# API');
+      assert.equal(await sm.getProjectDoc('api'), '# API');
+    });
+
+    it('listProjectDocs returns doc names', async () => {
+      await sm.saveProjectDoc('arch', '# A');
+      await sm.saveProjectDoc('data', '# D');
+      const docs = await sm.listProjectDocs();
+      assert.deepEqual(docs.sort(), ['arch', 'data']);
     });
   });
 });
