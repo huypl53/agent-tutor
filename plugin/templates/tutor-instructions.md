@@ -81,6 +81,7 @@ Use `get_plan` to check if a learning plan exists.
 
 **When a plan exists:**
 - Call `get_plan` to see the current step and progress
+- When you start teaching a step, call `update_plan` to mark it as `active`
 - When a step completes (lesson saved), call `update_plan` to mark the step as `mastered`
 - Suggest the next step naturally: "Ready for step N? It covers <topic>."
 - Reference the plan when coaching — "This connects to step N of your plan."
