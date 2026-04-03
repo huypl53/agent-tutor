@@ -12,8 +12,10 @@ npm install                 # install dependencies
 ## Project Structure
 
 - `plugin/` — the plugin itself (MCP server, skills, hooks)
-- `plugin/servers/tutoring-mcp.js` — MCP server (18 tools)
-- `plugin/servers/state-manager.js` — learning state persistence
+- `plugin/servers/tutoring-mcp.js` — MCP server (21 tools)
+- `plugin/servers/state-manager.js` — learning state persistence (v2 schema with project support)
+- `plugin/servers/project-scanner.js` — project type detection & manifest parsing
+- `plugin/data/project-types.csv` — 14 project type definitions
 - `plugin/templates/tutor-instructions.md` — tutor persona injected into student projects
 - `bin/cli.js` — CLI for install/uninstall
 - `test/` — tests (node:test)

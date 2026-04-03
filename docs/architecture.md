@@ -24,6 +24,11 @@
 │  │  │   state-manager.js       ││                 │
 │  │  │  (.agent-tutor/state.json)││                │
 │  │  └──────────────────────────┘│                 │
+│  │  ┌──────────────────────────┐│                 │
+│  │  │   ProjectScanner         ││                 │
+│  │  │   project-scanner.js     ││                 │
+│  │  │  (project-types.csv)     ││                 │
+│  │  └──────────────────────────┘│                 │
 │  └────────────────────────────┘                 │
 └─────────────────────────────────────────────────┘
 ```
@@ -42,11 +47,14 @@ agent-tutor/
 │   │   └── tutor-instructions.md # Tutor persona (injected into student projects)
 │   ├── hooks/
 │   │   └── hooks.json            # PostToolUse hook definitions
+│   ├── data/
+│   │   └── project-types.csv     # 14 project type definitions (type detection)
 │   ├── servers/
-│   │   ├── tutoring-mcp.js       # MCP server (18 tools, file watcher)
-│   │   └── state-manager.js      # StateManager (JSON state, topic state machine)
+│   │   ├── tutoring-mcp.js       # MCP server (21 tools, file watcher)
+│   │   ├── state-manager.js      # StateManager (JSON state, topic state machine)
+│   │   └── project-scanner.js    # ProjectScanner (type detection, manifest parsing)
 │   └── skills/
-│       ├── atu-check/SKILL.md    # 9 slash command skills
+│       ├── atu-check/SKILL.md    # 11 slash command skills
 │       ├── atu-debug/SKILL.md
 │       ├── atu-decompose/SKILL.md
 │       ├── atu-explain/SKILL.md
@@ -55,6 +63,8 @@ agent-tutor/
 │       ├── atu-review/SKILL.md
 │       ├── atu-save/SKILL.md
 │       ├── atu-workflow/SKILL.md
+│       ├── atu-onboard/SKILL.md
+│       ├── atu-deep-dive/SKILL.md
 │       ├── atu-code-review-learning/    # 4 teaching methodology skills
 │       ├── atu-dev-workflow/
 │       ├── atu-guided-debugging/
@@ -68,7 +78,7 @@ agent-tutor/
 
 ### MCP Server (`plugin/servers/tutoring-mcp.js`)
 
-Node.js MCP server using `@modelcontextprotocol/sdk` over stdio transport. Provides 18 tools across three domains:
+Node.js MCP server using `@modelcontextprotocol/sdk` over stdio transport. Provides 21 tools across four domains:
 
 **Observation tools (5):**
 
@@ -98,6 +108,26 @@ Node.js MCP server using `@modelcontextprotocol/sdk` over stdio transport. Provi
 | `delete_topic` | `id` | Delete a learning topic |
 | `delete_plan` | none | Delete the current learning plan |
 
+**Project analysis tools (3) — thin shells over ProjectScanner + StateManager:**
+
+| Tool | Input | Description |
+|------|-------|-------------|
+| `scan_project` | none | Scan project structure, detect type, parse manifests, identify entry points |
+| `get_project_profile` | none | Get stored project profile and list of analysis docs |
+| `save_project_doc` | `name`, `content` | Save a project analysis document to `.agent-tutor/docs/` |
+
+### ProjectScanner (`plugin/servers/project-scanner.js`)
+
+Scans a project directory to detect its type, parse manifests, and map structure. Uses `plugin/data/project-types.csv` as a lookup table for 14 project types.
+
+**Type detection:** Reads top-level files/dirs and manifest dependencies, matches against key_files patterns from the CSV. Supports exact files, glob patterns (`*.tf`, `vite.config.*`), directory names, and dependency names. Full-stack projects detected by matching 2+ frontend/backend subdirectories.
+
+**Manifest parsing:** Supports `package.json`, `requirements.txt`, `go.mod`, `Cargo.toml`, `pyproject.toml`. Returns normalized `{ name, dependencies, devDependencies }`.
+
+**Structure scanning:** Walks directory tree (max depth 3), ignoring `node_modules`, `.git`, etc. Identifies entry points by matching common names (`index`, `main`, `app`, `server`, `cli`).
+
+**Full scan (`scan()`):** Returns a project profile with type, stack inference, structure summary, entry points, analysis domains, and timestamp. Saved to state via `StateManager.saveProjectProfile()`.
+
 ### StateManager (`plugin/servers/state-manager.js`)
 
 Manages all learning state in `.agent-tutor/state.json`. Three-layer architecture:
@@ -106,13 +136,14 @@ Manages all learning state in `.agent-tutor/state.json`. Three-layer architectur
 MCP tool handler → StateManager method → state.json (atomic write)
 ```
 
-**State schema (v1):**
+**State schema (v2):**
 ```json
 {
-  "version": 1,
+  "version": 2,
   "topics": { "<id>": { "id", "title", "status", "complexity", "dependencies", "moments", "lessonFile" } },
   "plan": { "goal", "steps": [{ "topicId", "order", "status" }], "progress": { "completed", "total" } },
-  "session": { "activeTopicId", "resumeContext", "lastActivity" }
+  "session": { "activeTopicId", "resumeContext", "lastActivity" },
+  "project": { "projectType", "stack", "structure", "entryPoints", "analysisDomains", "docs", "deepDives", "scannedAt" }
 }
 ```
 
@@ -130,7 +161,9 @@ Valid transitions: `introduced→practicing`, `practicing→{struggling,breakthr
 
 **Plan overwrite guard:** `createPlan` throws if a plan already exists unless `force: true` is passed.
 
-**Auto-migration:** On first load, if `state.json` doesn't exist but `current-topic.md` or `learning-plan.md` do, parses them into the JSON schema and renames originals to `.bak`.
+**Auto-migration:** On first load, if `state.json` doesn't exist but `current-topic.md` or `learning-plan.md` do, parses them into the JSON schema and renames originals to `.bak`. v1→v2 migration adds the `project` key and runs automatically on read.
+
+**Project methods:** `saveProjectProfile()`, `getProjectProfile()`, `saveProjectDoc()`, `getProjectDoc()`, `listProjectDocs()`. Project docs are written to `.agent-tutor/docs/` as markdown files.
 
 **File watcher:** Uses `chokidar` to watch source files (`*.{js,ts,py,go,rs,...}`), ignoring `node_modules`, `.git`, etc. Events are stored in a ring buffer (max 100 entries) with diffs captured via `git diff`.
 
@@ -157,7 +190,7 @@ Declares the MCP server and hooks for Claude Code's plugin system:
 
 Two categories:
 
-1. **Command skills** (9) — Thin dispatchers that call MCP tools and provide coaching templates. Each is a `SKILL.md` file under `plugin/skills/atu-<name>/`.
+1. **Command skills** (11) — Thin dispatchers that call MCP tools and provide coaching templates. Each is a `SKILL.md` file under `plugin/skills/atu-<name>/`. Includes 2 project analysis skills (`atu-onboard`, `atu-deep-dive`) that orchestrate sub-agents for codebase analysis.
 
 2. **Teaching methodology skills** (4) — Detailed pedagogical methodologies with `references/` subdirectories:
    - `atu-guided-debugging` — 4-phase debugging methodology
@@ -197,6 +230,15 @@ Student activity
                                                     │
                                                     ▼
                                             Agent coaching response
+
+/atu:onboard
+    │
+    ├─ scan_project ───► ProjectScanner ──► project profile (state.json)
+    │                     (type detection,
+    │                      manifest parsing)
+    └─ sub-agents ─────► domain analysis ──► .agent-tutor/docs/*.md
+       (parallel)         (architecture,      (save_project_doc)
+                           api, data, etc.)
 ```
 
 ## Key Design Decisions
