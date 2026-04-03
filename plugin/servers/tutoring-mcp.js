@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const chokidar = require('chokidar');
 const { StateManager, TOPIC_STATUSES } = require('./state-manager');
+const { ProjectScanner } = require('./project-scanner');
 
 // --- Config ---
 
@@ -153,6 +154,7 @@ server.tool('set_coaching_intensity',
 // --- Learning State ---
 
 const stateManager = new StateManager(process.cwd());
+const projectScanner = new ProjectScanner(process.cwd());
 
 // Run migration on startup
 stateManager.migrateIfNeeded().catch(err => {
@@ -331,6 +333,49 @@ server.tool('get_learning_summary',
   async () => {
     const summary = await stateManager.getLearningSummary();
     return { content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }] };
+  }
+);
+
+// --- Project Analysis ---
+
+server.tool('scan_project',
+  'Scan the project structure, detect type, parse manifests, identify entry points. Fast — no source reading.',
+  {},
+  async () => {
+    try {
+      const profile = projectScanner.scan();
+      await stateManager.saveProjectProfile(profile);
+      return { content: [{ type: 'text', text: JSON.stringify(profile, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  }
+);
+
+server.tool('get_project_profile',
+  'Get the stored project profile and list of analysis docs',
+  {},
+  async () => {
+    const profile = await stateManager.getProjectProfile();
+    if (!profile) return { content: [{ type: 'text', text: 'No project profile. Run scan_project first.' }] };
+    const docs = await stateManager.listProjectDocs();
+    return { content: [{ type: 'text', text: JSON.stringify({ ...profile, availableDocs: docs }, null, 2) }] };
+  }
+);
+
+server.tool('save_project_doc',
+  'Save a project analysis document (used by sub-agents during onboarding)',
+  {
+    name: z.string().describe('Document name without extension (e.g. "architecture", "api-contracts")'),
+    content: z.string().describe('Markdown content of the analysis document'),
+  },
+  async ({ name, content }) => {
+    try {
+      const filePath = await stateManager.saveProjectDoc(name, content);
+      return { content: [{ type: 'text', text: `Saved to ${filePath}` }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
   }
 );
 
