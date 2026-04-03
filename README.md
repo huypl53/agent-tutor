@@ -65,6 +65,8 @@ Options:
 | `/atu:decompose` | Problem decomposition coaching |
 | `/atu:workflow` | Development workflow habit coaching |
 | `/atu:plan` | Create a learning plan or show progress |
+| `/atu:onboard` | Analyze the project — detect stack, architecture, patterns |
+| `/atu:deep-dive` | Deep-dive into a specific module or feature |
 
 ## Lesson Export
 
@@ -107,6 +109,21 @@ Create a structured learning path with `/atu:plan`:
 /atu:plan next                       # marks current step done, advances
 ```
 
+## Project Analysis
+
+Agent Tutor can analyze the student's project to provide context-aware coaching:
+
+```
+/atu:onboard                    # full project analysis (type, stack, architecture)
+/atu:deep-dive src/auth         # focused analysis of a specific module
+```
+
+**`/atu:onboard`** runs a fast scan (type detection, manifest parsing, structure mapping) then spawns parallel sub-agents to analyze each domain (architecture, API, data, testing, etc.). Results are saved to `.agent-tutor/docs/` and used for context-aware coaching.
+
+**`/atu:deep-dive`** does an exhaustive analysis of a specific directory — reading every file, mapping dependencies, and explaining patterns pedagogically.
+
+Supports 14 project types: web apps, backend APIs, CLI tools, libraries, mobile/desktop apps, games, data pipelines, extensions, infrastructure, embedded systems, AI/LLM apps, and DevOps platforms.
+
 ## Configuration
 
 Config is stored in `.agent-tutor/config.json`:
@@ -130,9 +147,9 @@ Change intensity via MCP tool: the agent can call `set_coaching_intensity` with 
 
 Agent Tutor is a Claude Code plugin with three components:
 
-1. **MCP Server** (`plugin/servers/tutoring-mcp.js`) — Node.js server providing 18 tools over stdio: 5 observation tools (file changes, git activity, coaching config) and 13 learning state tools (topic CRUD, plans, sessions, summaries). Uses `chokidar` for file watching and a `StateManager` layer for atomic JSON state operations.
+1. **MCP Server** (`plugin/servers/tutoring-mcp.js`) — Node.js server providing 21 tools over stdio: 5 observation tools, 13 learning state tools, and 3 project analysis tools. Uses `chokidar` for file watching, a `StateManager` layer for atomic JSON state operations, and a `ProjectScanner` for project type detection and manifest parsing.
 
-2. **Skills** (`plugin/skills/`) — 9 slash command skills and 4 teaching methodology skills with reference material.
+2. **Skills** (`plugin/skills/`) — 11 slash command skills (including `/atu:onboard` and `/atu:deep-dive` for project analysis) and 4 teaching methodology skills with reference material.
 
 3. **Hooks** (`plugin/hooks/hooks.json`) — PostToolUse advisory hooks that detect large files and error patterns, suggesting relevant coaching commands.
 

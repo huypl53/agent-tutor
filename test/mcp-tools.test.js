@@ -65,4 +65,34 @@ describe('MCP tool contracts', () => {
     assert.equal(session.activeTopicId, 'promises');
     assert.equal(session.resumeContext, 'Starting promises chapter');
   });
+
+  it('project workflow: scan → save doc → get profile', async () => {
+    // Set up a fake project
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({
+      name: 'test-app', dependencies: { express: '^4.18.0' },
+    }));
+    fs.writeFileSync(path.join(tmpDir, 'server.js'), '');
+    fs.mkdirSync(path.join(tmpDir, 'src'));
+
+    // Import ProjectScanner and verify it works with StateManager
+    const { ProjectScanner } = require('../plugin/servers/project-scanner');
+    const scanner = new ProjectScanner(tmpDir);
+    const profile = scanner.scan();
+    assert.ok(profile.projectType);
+    assert.ok(profile.scannedAt);
+
+    // Save profile via StateManager
+    await sm.saveProjectProfile(profile);
+    const loaded = await sm.getProjectProfile();
+    assert.equal(loaded.projectType, profile.projectType);
+
+    // Save a doc
+    await sm.saveProjectDoc('architecture', '# Test Architecture');
+    const doc = await sm.getProjectDoc('architecture');
+    assert.equal(doc, '# Test Architecture');
+
+    // List docs
+    const docs = await sm.listProjectDocs();
+    assert.ok(docs.includes('architecture'));
+  });
 });
