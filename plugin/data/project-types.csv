@@ -1,5 +1,5 @@
 type_id,display_name,key_files,critical_dirs,analysis_domains,test_patterns,entry_points
-web-app,Web Application,"package.json,next.config.*,vite.config.*,nuxt.config.*,svelte.config.*,angular.json,astro.config.*","src/,app/,pages/,components/","architecture,components,state,routing,testing,dev-setup","*.test.{ts,tsx,js,jsx},*.spec.{ts,tsx,js,jsx}","index.{ts,tsx,js,jsx},main.{ts,tsx,js,jsx},app.{ts,tsx,js,jsx}"
+web-app,Web Application,"next.config.*,vite.config.*,nuxt.config.*,svelte.config.*,angular.json,astro.config.*","src/,app/,pages/,components/","architecture,components,state,routing,testing,dev-setup","*.test.{ts,tsx,js,jsx},*.spec.{ts,tsx,js,jsx}","index.{ts,tsx,js,jsx},main.{ts,tsx,js,jsx},app.{ts,tsx,js,jsx}"
 backend-api,Backend API,"server.js,app.js,manage.py,main.go,cmd/,Gemfile,build.gradle,pom.xml","src/,app/,api/,routes/,controllers/,services/,handlers/","architecture,api,data,testing,dev-setup","*.test.{ts,js},*_test.go,test_*.py,*_test.rb,*Test.java","server.{ts,js},app.{ts,js,py},main.{go,py,ts,js},index.{ts,js}"
 full-stack,Full-Stack Application,"","client/,server/,frontend/,backend/,apps/,packages/","architecture,api,data,components,testing,dev-setup","",""
 cli-tool,CLI Tool,"bin/,commander,click,cobra,clap","src/,cmd/,lib/","architecture,testing,dev-setup","*.test.{ts,js},*_test.go,test_*.py","cli.{ts,js,py},main.{go,py,ts,js,rs}"
